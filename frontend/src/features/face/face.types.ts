@@ -31,7 +31,16 @@ export type FaceTrackingState =
   | 'DETECTED'
   | 'TRACKING'
   | 'STABILIZING'
-  | 'LOCKED';
+  | 'LOCKED'
+  | 'idle'
+  | 'scanning'
+  | 'detected'
+  | 'locking'
+  | 'locked'
+  | 'acquiring'
+  | 'processing'
+  | 'stabilized'
+  | 'lost';
 
 export interface FaceTrackingResult {
   state: FaceTrackingState;

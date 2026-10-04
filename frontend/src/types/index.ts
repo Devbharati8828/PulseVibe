@@ -14,6 +14,16 @@ export interface SessionRecord {
   bpmTimeline: { t: number; bpm: number }[];
 }
 
+export interface PulseSession {
+  id: string;
+  startTime: number;
+  endTime: number;
+  duration: number;
+  avgBpm: number;
+  avgTrust: number;
+  signalQuality: SignalQuality;
+}
+
 export type StatusMessageType = 'info' | 'success' | 'warning' | 'error';
 
 export interface StatusMessage {

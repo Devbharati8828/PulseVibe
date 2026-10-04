@@ -91,7 +91,7 @@ export function FaceTrackingHUD() {
         trackingState === 'LOCKED';
 
       // ── 1. Dense tessellation mesh with centre-weighted glow ─────────────
-      if (landmarks && isActive && FaceLandmarker.FACE_LANDMARKS_TESSELLATION) {
+      if (landmarks && isActive && FaceLandmarker.FACE_LANDMARKS_TESSELATION) {
         // Compute face centre in normalised space for distance-based opacity
         const { cx, cy } = getFaceCentre(landmarks, CENTER_LANDMARKS);
 
@@ -100,7 +100,7 @@ export function FaceTrackingHUD() {
         const inner: [number, number, number, number][] = []; // [x0,y0,x1,y1]
         const outer: [number, number, number, number][] = [];
 
-        for (const conn of FaceLandmarker.FACE_LANDMARKS_TESSELLATION) {
+        for (const conn of FaceLandmarker.FACE_LANDMARKS_TESSELATION) {
           const s = landmarks[conn.start];
           const e = landmarks[conn.end];
           if (!s || !e) continue;

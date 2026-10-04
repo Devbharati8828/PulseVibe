@@ -8,19 +8,20 @@ export function BPMPanel() {
   const isRunning = useEngineStore((state) => state.isRunning);
 
   const bpm = viewModel?.bpm;
+  const bpmValue = bpm ?? 0;
   const trustScore = viewModel?.trustScore ?? 0;
   const trackingState = viewModel?.trackingState;
 
   // Determine display state
-  const hasValidBpm = bpm !== null && bpm > 0;
+  const hasValidBpm = bpm !== null && bpm !== undefined && bpmValue > 0;
   const isReliable = trustScore >= 0.4; // Show BPM at 40%+ confidence
   const isWarming = isRunning && !hasValidBpm;
-  const isHigh = hasValidBpm && bpm > 100;
-  const isLow = hasValidBpm && bpm < 60;
+  const isHigh = hasValidBpm && bpmValue > 100;
+  const isLow = hasValidBpm && bpmValue < 60;
 
   // Only show the number when trust is 40%+
-  const bpmDisplay = (hasValidBpm && isReliable) ? Math.round(bpm!).toString() : '—';
-  const animationDuration = (hasValidBpm && isReliable && bpm! > 0) ? `${60 / bpm!}s` : '1s';
+  const bpmDisplay = (hasValidBpm && isReliable) ? Math.round(bpmValue).toString() : '—';
+  const animationDuration = (hasValidBpm && isReliable && bpmValue > 0) ? `${60 / bpmValue}s` : '1s';
 
   // Status label below the number
   let statusLabel = 'AWAITING SIGNAL';

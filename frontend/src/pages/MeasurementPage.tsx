@@ -47,7 +47,7 @@ export default function MeasurementPage() {
           {!isRunning ? (
             <Button onClick={start}>ENGAGE SCANNER</Button>
           ) : (
-            <Button variant="destructive" onClick={stop}>HALT</Button>
+            <Button variant="destructive" onClick={() => stop()}>HALT</Button>
           )}
           <Button variant="outline" onClick={() => navigate('/lab')}>SIGNAL LAB</Button>
         </div>

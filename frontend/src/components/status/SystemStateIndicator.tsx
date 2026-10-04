@@ -3,12 +3,13 @@ import { Search, Lock, Activity, AlertTriangle, Play } from 'lucide-react';
 import { useEngineStore } from '../../stores/useEngineStore';
 import { cn } from '../../lib/cn';
 import type { TrackingState } from '../../engine/types';
+import type { FaceTrackingState } from '../../features/face/face.types';
 
 export function SystemStateIndicator() {
   const trackingState = useEngineStore((state) => state.viewModel?.trackingState || 'idle');
   const label = useEngineStore((state) => state.viewModel?.trackingStateLabel || 'SYSTEM IDLE');
 
-  const getConfig = (state: TrackingState) => {
+  const getConfig = (state: TrackingState | FaceTrackingState) => {
     switch (state) {
       case 'idle':
         return { icon: Play, color: 'text-surface-700', bg: 'bg-surface-800' };
