@@ -1,0 +1,16 @@
+{
+  "name": "PulseVibe — AI Vision Vital-Signal Lab",
+  "short_name": "PulseVibe",
+  "description": "Contactless heart-rate estimation via AI computer vision.",
+  "theme_color": "#020617",
+  "background_color": "#020617",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
