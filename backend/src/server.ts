@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { createApp } from './app.js';
 import { runMigrations } from './db/migrate.js';
+import cors from 'cors';
 import pino from 'pino';
 
 const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
@@ -13,7 +14,15 @@ async function bootstrap() {
     await runMigrations();
     logger.info('[server] Migrations complete');
 
-    const app = createApp();
+    const app = createApp((app) => {
+      app.use(cors({
+        origin: [
+          "http://localhost:5173",
+          "https://pulse-vibe-rho.vercel.app"
+        ],
+        credentials: true
+      }));
+    });
 
     app.listen(PORT, () => {
       logger.info(`[server] PulseVibe API listening on http://localhost:${PORT}`);
