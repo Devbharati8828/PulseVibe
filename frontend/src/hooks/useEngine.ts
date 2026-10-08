@@ -27,6 +27,8 @@ export function useEngine(videoRef: React.RefObject<HTMLVideoElement | null>) {
       } else {
         setVisionCoreState('idle');
       }
+    } else {
+      updateViewModel(null);
     }
   }, [viewModel, updateViewModel, setVisionCoreState]);
 

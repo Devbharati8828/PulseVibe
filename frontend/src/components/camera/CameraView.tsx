@@ -18,7 +18,7 @@ export function CameraView({ children, videoRef }: CameraViewProps) {
       {!isSimulation ? (
         <video
           ref={videoRef}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover scale-x-[-1]"
           playsInline
           muted
           autoPlay

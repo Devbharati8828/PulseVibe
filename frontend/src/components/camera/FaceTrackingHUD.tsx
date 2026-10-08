@@ -90,72 +90,8 @@ export function FaceTrackingHUD() {
         trackingState === 'STABILIZING' ||
         trackingState === 'LOCKED';
 
-      // ── 1. Dense tessellation mesh with centre-weighted glow ─────────────
-      if (landmarks && isActive && FaceLandmarker.FACE_LANDMARKS_TESSELATION) {
-        // Compute face centre in normalised space for distance-based opacity
-        const { cx, cy } = getFaceCentre(landmarks, CENTER_LANDMARKS);
-
-        // Pre-sort connections into centre / edge buckets so we can batch
-        // by opacity, keeping draw calls minimal (2 strokes total).
-        const inner: [number, number, number, number][] = []; // [x0,y0,x1,y1]
-        const outer: [number, number, number, number][] = [];
-
-        for (const conn of FaceLandmarker.FACE_LANDMARKS_TESSELATION) {
-          const s = landmarks[conn.start];
-          const e = landmarks[conn.end];
-          if (!s || !e) continue;
-
-          // Mid-point distance from centre (normalised)
-          const mx = (s.x + e.x) * 0.5;
-          const my = (s.y + e.y) * 0.5;
-          const dist = Math.sqrt((mx - cx) ** 2 + (my - cy) ** 2);
-
-          (dist < 0.18 ? inner : outer).push([s.x * W, s.y * H, e.x * W, e.y * H]);
-        }
-
-        // Inner (bright) strokes
-        ctx.save();
-        ctx.lineWidth   = 0.65;
-        ctx.strokeStyle = 'rgba(34, 211, 238, 0.30)';
-        ctx.shadowColor = 'rgba(34, 211, 238, 0.55)';
-        ctx.shadowBlur  = 5;
-        ctx.beginPath();
-        for (const [x0, y0, x1, y1] of inner) {
-          ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
-        }
-        ctx.stroke();
-        ctx.restore();
-
-        // Outer (faded) strokes
-        ctx.save();
-        ctx.lineWidth   = 0.55;
-        ctx.strokeStyle = 'rgba(34, 211, 238, 0.10)';
-        ctx.shadowColor = 'rgba(34, 211, 238, 0.15)';
-        ctx.shadowBlur  = 2;
-        ctx.beginPath();
-        for (const [x0, y0, x1, y1] of outer) {
-          ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
-        }
-        ctx.stroke();
-        ctx.restore();
-
-        // ── 2. Major landmark nodes — larger, brighter, glowing ────────────
-        ctx.save();
-        ctx.shadowColor = 'rgba(34, 211, 238, 1)';
-        ctx.shadowBlur  = 14;
-        ctx.fillStyle   = 'rgba(255, 255, 255, 0.90)';
-        for (const idx of MAJOR_LANDMARK_INDICES) {
-          const pt = landmarks[idx];
-          if (!pt) continue;
-          // Nodes near centre are slightly larger
-          const dist = Math.sqrt((pt.x - cx) ** 2 + (pt.y - cy) ** 2);
-          const r    = dist < 0.18 ? 1.9 : 1.4;
-          ctx.beginPath();
-          ctx.arc(pt.x * W, pt.y * H, r, 0, 2 * Math.PI);
-          ctx.fill();
-        }
-        ctx.restore();
-      }
+      // ── 1. Dense tessellation mesh with centre-weighted glow (DISABLED) ─────────────
+      // User requested old overlay, so we only draw brackets and HUD.
 
       // ── 3. Corner brackets ───────────────────────────────────────────────
       if (faceBounds && trackingState !== 'NO_FACE') {

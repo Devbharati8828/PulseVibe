@@ -58,23 +58,31 @@ export function mapEngineOutputToViewModel(result: EngineResult): PulseViewModel
     })),
     dominantFrequency: result.fftSpectrum.dominantFrequency,
 
-    landmarks: result.landmarks ? result.landmarks.map(l => ({ x: l.x, y: l.y, z: l.z ?? 0 })) : null,
-    faceBounds: result.boundingBox,
+    landmarks: result.landmarks ? result.landmarks.map(l => ({ x: 1 - l.x, y: l.y, z: l.z ?? 0 })) : null,
+    faceBounds: result.boundingBox ? {
+      x: 1 - (result.boundingBox.x + result.boundingBox.width),
+      y: result.boundingBox.y,
+      width: result.boundingBox.width,
+      height: result.boundingBox.height,
+    } : null,
     faceDetected: result.trackingState !== 'NO_FACE',
     faceConfidence: result.faceConfidence,
     roiRegions: [
       result.roi.forehead,
       result.roi.leftCheek,
       result.roi.rightCheek,
-    ].filter(r => r.valid).map((r, i) => ({
-      name: i === 0 ? 'Forehead' : i === 1 ? 'Left Cheek' : 'Right Cheek',
-      points: [
-        { x: r.x, y: r.y },
-        { x: r.x + r.width, y: r.y },
-        { x: r.x + r.width, y: r.y + r.height },
-        { x: r.x, y: r.y + r.height },
-      ],
-    })),
+    ].filter(r => r.valid).map((r, i) => {
+      const flippedX = 1 - (r.x + r.width);
+      return {
+        name: i === 0 ? 'Forehead' : i === 1 ? 'Left Cheek' : 'Right Cheek',
+        points: [
+          { x: flippedX, y: r.y },
+          { x: flippedX + r.width, y: r.y },
+          { x: flippedX + r.width, y: r.y + r.height },
+          { x: flippedX, y: r.y + r.height },
+        ],
+      };
+    }),
     
     trackingState: result.trackingState,
     trackingStateLabel: getTrackingStateLabel(result.trackingState),
