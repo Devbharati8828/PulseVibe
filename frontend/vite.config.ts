@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 
-const base = '/PulseVibe/';
+const base = '/';
 
 export default defineConfig({
   plugins: [
