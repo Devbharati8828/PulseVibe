@@ -4,9 +4,9 @@
   "description": "PulseVibe REST API — session storage and sync",
   "type": "module",
   "scripts": {
-    "dev": "nodemon server.js",
+    "dev": "nodemon",
     "build": "tsc",
-    "start": "node server.js",
+    "start": "npx tsx src/server.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
     "test": "vitest run",
