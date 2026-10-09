@@ -1,5 +1,10 @@
 // ─── Face Feature Types ────────────────────────────────────────────
 
+export interface Blendshape {
+  categoryName: string;
+  score: number;
+}
+
 export interface NormalizedPoint {
   x: number;  // 0.0 – 1.0 of video width
   y: number;  // 0.0 – 1.0 of video height
@@ -19,6 +24,7 @@ export interface FaceDetectionResult {
 
 export interface FaceLandmarkResult {
   landmarks: NormalizedPoint[];
+  blendshapes?: Blendshape[];
   detected: boolean;
 }
 
@@ -47,6 +53,7 @@ export interface FaceTrackingResult {
   stableFrameCount: number;
   lostFrameCount: number;
   landmarks: NormalizedPoint[] | null;
+  blendshapes?: Blendshape[];
   boundingBox: {
     x: number;
     y: number;

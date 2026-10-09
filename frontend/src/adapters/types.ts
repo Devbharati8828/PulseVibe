@@ -20,6 +20,7 @@ export interface PulseViewModel {
   faceDetected: boolean;
   faceConfidence: number;
   roiRegions: { name: string; points: { x: number; y: number }[] }[];
+  blendshapes?: { categoryName: string; score: number }[];
 
   trackingState: FaceTrackingState;
   trackingStateLabel: string; // "FACE LOCK ACQUIRED"

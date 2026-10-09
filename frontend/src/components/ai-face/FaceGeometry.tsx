@@ -89,7 +89,7 @@ function patchMaterial(mat: THREE.MeshStandardMaterial) {
     `.replace(
       '#include <begin_vertex>',
       `#include <begin_vertex>
-       vWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`,
+       vWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`
     );
 
     shader.fragmentShader = `
@@ -103,7 +103,7 @@ function patchMaterial(mat: THREE.MeshStandardMaterial) {
        // Horizontal scan line sweep
        float scanY = mod(vWorldPos.y + uTime * 0.8, 2.2) - 1.1;
        float line  = smoothstep(0.04, 0.0, abs(scanY)) * 0.35 * uScanActive;
-       gl_FragColor.rgb += vec3(0.13, 0.82, 0.95) * line;`,
+       gl_FragColor.rgb += vec3(0.13, 0.82, 0.95) * line;`
     );
     mat.userData.shader = shader;
   };
@@ -198,6 +198,9 @@ export function FaceGeometry() {
   const trackingState = useEngineStore((s) => s.viewModel?.trackingState);
   const bpm = useEngineStore((s) => s.viewModel?.bpm ?? 72);
   const motionWarning = useEngineStore((s) => s.viewModel?.motionWarning ?? false);
+  const faceBounds = useEngineStore((s) => s.viewModel?.faceBounds);
+  const blendshapes = useEngineStore((s) => s.viewModel?.blendshapes);
+  const landmarks = useEngineStore((s) => s.viewModel?.landmarks);
 
   // ── Refs for Three.js objects ─────────────────────────────────────────────
   const skullRef = useRef<THREE.Mesh>(null);
@@ -210,7 +213,7 @@ export function FaceGeometry() {
 
   // ── Blink system (ref-based, zero re-renders) ─────────────────────────────
   const blinkRef = useRef({
-    nextBlink: 3 + Math.random() * 3,
+    lastBlinkTime: 0,
     blinking: false,
     blinkProgress: 0, // 0 = open, 1 = closed
   });
@@ -307,7 +310,23 @@ export function FaceGeometry() {
         break;
     }
 
+    // ── Head movement target ────────────────────────────────────────────────
+    let targetPosX = 0;
+    let targetPosY = 0;
+    
+    if (faceBounds) {
+      // Map normalized (0-1) bounds to spatial offset. 
+      // Multiplier (2.0) defines the spatial range (± ~20-30px equivalent)
+      targetPosX = (faceBounds.x + faceBounds.width / 2 - 0.5) * 2.0;
+      targetPosY = (0.5 - (faceBounds.y + faceBounds.height / 2)) * 2.0;
+    }
+
     if (groupRef.current) {
+      // Position shifting
+      groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetPosX, delta * 5);
+      groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, targetPosY, delta * 5);
+
+      // Rotation shifting
       groupRef.current.rotation.x = THREE.MathUtils.lerp(
         groupRef.current.rotation.x,
         headTarget.current.x,
@@ -352,26 +371,57 @@ export function FaceGeometry() {
 
     // ── Blink system ─────────────────────────────────────────────────────────
     const blink = blinkRef.current;
-    // Don't blink during processing — wide-eyed alert
-    if (displayState !== 'processing') {
-      blink.nextBlink -= delta;
-      if (!blink.blinking && blink.nextBlink <= 0) {
-        blink.blinking = true;
-        blink.blinkProgress = 0;
-        blink.nextBlink = 3 + Math.random() * 4;
-      }
-      if (blink.blinking) {
-        // Close in 60ms, open in 120ms — total ~180ms
-        blink.blinkProgress += delta / 0.18;
-        if (blink.blinkProgress >= 1) {
-          blink.blinking = false;
-          blink.blinkProgress = 0;
-        }
+    
+    // Check blendshapes for blink intent
+    let blinkLeft = blendshapes?.find(b => {
+      const n = b.categoryName.toLowerCase();
+      return n.includes('blink') && (n.includes('left') || n.includes('_l'));
+    })?.score;
+    
+    let blinkRight = blendshapes?.find(b => {
+      const n = b.categoryName.toLowerCase();
+      return n.includes('blink') && (n.includes('right') || n.includes('_r'));
+    })?.score;
+    
+    // Fallback to manual EAR (Eye Aspect Ratio) if blendshapes are missing
+    if (blinkLeft === undefined || blinkRight === undefined) {
+      if (landmarks && landmarks.length > 386) {
+        // Vertical distance between upper and lower eyelids
+        const leftEyeDist = Math.abs(landmarks[159].y - landmarks[145].y);
+        const rightEyeDist = Math.abs(landmarks[386].y - landmarks[374].y);
+        
+        // Open eye dist is ~0.02 - 0.03. Closed is < 0.005
+        blinkLeft = leftEyeDist < 0.008 ? 1.0 : 0.0;
+        blinkRight = rightEyeDist < 0.008 ? 1.0 : 0.0;
+      } else {
+        blinkLeft = 0;
+        blinkRight = 0;
       }
     }
-    // blinkProgress 0→0.33: close (scale Y 1→0), 0.33→1: reopen (scale Y 0→1)
+    
+    const isBlinkingIntent = blinkLeft > 0.3 || blinkRight > 0.3;
+
+    // Trigger blink with 300ms debounce
+    if (isBlinkingIntent && !blink.blinking && (t - blink.lastBlinkTime) > 0.3) {
+      blink.blinking = true;
+      blink.blinkProgress = 0;
+      blink.lastBlinkTime = t;
+    }
+
+    if (blink.blinking) {
+      // 200ms total duration for squash/shutter
+      blink.blinkProgress += delta / 0.20;
+      if (blink.blinkProgress >= 1) {
+        blink.blinking = false;
+        blink.blinkProgress = 0;
+      }
+    }
+
+    // blinkProgress 0→0.5: squash (scale Y 1→0), 0.5→1: reopen (scale Y 0→1)
     const bP = blink.blinkProgress;
-    const pupilScaleY = bP < 0.33 ? 1 - (bP / 0.33) : (bP - 0.33) / 0.67;
+    const pupilScaleY = blink.blinking 
+      ? (bP < 0.5 ? 1 - (bP / 0.5) : (bP - 0.5) / 0.5)
+      : 1.0;
 
     // ── Pupil scale + colour ─────────────────────────────────────────────────
     for (const pRef of [pupilLRef, pupilRRef]) {

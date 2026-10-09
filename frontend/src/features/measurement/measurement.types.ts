@@ -31,6 +31,7 @@ export interface EngineResult {
   rppgSignal: Float32Array;
   fftSpectrum: FFTResult;
   landmarks: NormalizedPoint[];
+  blendshapes?: import('../face/face.types.js').Blendshape[];
   boundingBox: { x: number; y: number; width: number; height: number } | null;
   trackingState: FaceTrackingState;
   faceConfidence: number; // Real MediaPipe detection confidence (0–1)

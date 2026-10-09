@@ -126,7 +126,8 @@ export class PulseVibeEngine {
       landmarking.detected,
       landmarking.landmarks.length > 0 ? landmarking.landmarks : null,
       detection.boundingBox,
-      detection.confidence
+      detection.confidence,
+      landmarking.blendshapes
     );
 
     let motion = { motionScore: 0, stable: true, excessiveMotion: false };
@@ -175,6 +176,7 @@ export class PulseVibeEngine {
       rppgSignal: wRes?.signal ?? new Float32Array(),
       fftSpectrum: wRes?.fft ?? { frequencies: new Float32Array(), magnitudes: new Float32Array(), dominantFrequency: 0 },
       landmarks: tracking.landmarks ?? [],
+      blendshapes: tracking.blendshapes,
       boundingBox: tracking.boundingBox,
       trackingState: tracking.state,
       faceConfidence: detection.confidence,

@@ -67,6 +67,7 @@ export function mapEngineOutputToViewModel(result: EngineResult): PulseViewModel
     } : null,
     faceDetected: result.trackingState !== 'NO_FACE',
     faceConfidence: result.faceConfidence,
+    blendshapes: result.blendshapes,
     roiRegions: [
       result.roi.forehead,
       result.roi.leftCheek,

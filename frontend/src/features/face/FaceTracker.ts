@@ -44,10 +44,11 @@ export class FaceTracker {
     detected: boolean,
     landmarks: NormalizedPoint[] | null,
     boundingBox: { x: number; y: number; width: number; height: number } | null,
-    confidence: number
+    confidence: number,
+    blendshapes?: import('./face.types.js').Blendshape[]
   ): FaceTrackingResult {
     if (!detected || landmarks === null || landmarks.length === 0) {
-      return this.handleLost(landmarks, boundingBox, confidence);
+      return this.handleLost(landmarks, boundingBox, confidence, blendshapes);
     }
 
     this.lostFrames = 0;
@@ -109,6 +110,7 @@ export class FaceTracker {
       stableFrameCount: this.stableFrames,
       lostFrameCount: this.lostFrames,
       landmarks,
+      blendshapes,
       boundingBox,
       confidence,
     };
@@ -128,7 +130,8 @@ export class FaceTracker {
   private handleLost(
     landmarks: NormalizedPoint[] | null,
     boundingBox: { x: number; y: number; width: number; height: number } | null,
-    confidence: number
+    confidence: number,
+    blendshapes?: import('./face.types.js').Blendshape[]
   ): FaceTrackingResult {
     this.lostFrames++;
     this.stableFrames = 0;
@@ -151,6 +154,7 @@ export class FaceTracker {
       stableFrameCount: this.stableFrames,
       lostFrameCount: this.lostFrames,
       landmarks,
+      blendshapes,
       boundingBox,
       confidence,
     };

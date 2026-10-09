@@ -26,7 +26,7 @@ export class FaceLandmarker {
       numFaces: 1,
       minFaceDetectionConfidence: 0.5,
       minTrackingConfidence: 0.5,
-      outputFaceBlendshapes: false,
+      outputFaceBlendshapes: true,
       outputFacialTransformationMatrixes: false,
     });
   }
@@ -53,7 +53,15 @@ export class FaceLandmarker {
       z: lm.z,
     }));
 
-    return { landmarks: points, detected: true };
+    let blendshapes;
+    if (result.faceBlendshapes && result.faceBlendshapes.length > 0) {
+      blendshapes = result.faceBlendshapes[0].categories.map(c => ({
+        categoryName: c.categoryName,
+        score: c.score
+      }));
+    }
+
+    return { landmarks: points, blendshapes, detected: true };
   }
 
   close(): void {
