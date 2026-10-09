@@ -63,9 +63,9 @@ self.onmessage = (e: MessageEvent<SignalWorkerMessage>) => {
       msg.isLocked ?? false
     );
 
-    // 6. Compute BPM
-    // We only update BPM if quality is decent (FAIR or better)
-    const validSignal = quality.label !== 'POOR';
+    // We compute BPM continuously so the user sees a reading, 
+    // relying on the Trust Score UI to communicate low confidence.
+    const validSignal = fftResult.dominantFrequency > 0;
     const bpmResult = bpmEngine.compute(fftResult.dominantFrequency, validSignal);
 
     // 7. Compute Trust Score

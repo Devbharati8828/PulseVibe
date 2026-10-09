@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEngine } from '../hooks/useEngine';
 import { useEngineStore } from '../stores/useEngineStore';
@@ -18,12 +18,14 @@ import { WaveformChart } from '../components/visualization/WaveformChart';
 import { FFTSpectrumChart } from '../components/visualization/FFTSpectrumChart';
 import { Button } from '../components/ui/button';
 import { useSessionRecorder } from '../hooks/useSessionRecorder';
+import { SignalLab } from '../components/visualization/SignalLab';
 
 export default function MeasurementPage() {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
   const { start, stop } = useEngine(videoRef);
   const isRunning = useEngineStore((state) => state.isRunning);
+  const [showLab, setShowLab] = useState(false);
   
   // Start session recording automatically
   useSessionRecorder();
@@ -49,7 +51,7 @@ export default function MeasurementPage() {
           ) : (
             <Button variant="destructive" onClick={() => stop()}>HALT</Button>
           )}
-          <Button variant="outline" onClick={() => navigate('/lab')}>SIGNAL LAB</Button>
+          <Button variant="outline" onClick={() => setShowLab(true)}>SIGNAL LAB</Button>
         </div>
       </div>
 
@@ -102,6 +104,23 @@ export default function MeasurementPage() {
         <WaveformChart />
         <FFTSpectrumChart />
       </div>
+
+      {/* Signal Lab Overlay */}
+      {showLab && (
+        <div className="absolute inset-0 z-50 bg-surface-950 flex flex-col h-full overflow-y-auto custom-scrollbar">
+          <div className="sticky top-0 z-50 bg-surface-950/80 backdrop-blur-md px-8 py-4 border-b border-surface-800 flex justify-between items-center">
+            <Button variant="ghost" onClick={() => setShowLab(false)}>
+              ← BACK TO SCANNER
+            </Button>
+            <span className="font-mono-data text-cyan-glow text-sm tracking-widest uppercase">
+              Live Signal Analysis
+            </span>
+          </div>
+          <div className="flex-1 py-8">
+            <SignalLab />
+          </div>
+        </div>
+      )}
 
     </div>
   );

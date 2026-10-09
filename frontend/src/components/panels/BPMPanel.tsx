@@ -19,9 +19,10 @@ export function BPMPanel() {
   const isHigh = hasValidBpm && bpmValue > 100;
   const isLow = hasValidBpm && bpmValue < 60;
 
-  // Only show the number when trust is 40%+
-  const bpmDisplay = (hasValidBpm && isReliable) ? Math.round(bpmValue).toString() : '—';
-  const animationDuration = (hasValidBpm && isReliable && bpmValue > 0) ? `${60 / bpmValue}s` : '1s';
+  // Display the BPM as long as we have a reading, even if confidence is low.
+  // The color and status label will indicate low confidence to the user.
+  const bpmDisplay = hasValidBpm ? Math.round(bpmValue).toString() : '—';
+  const animationDuration = (hasValidBpm && bpmValue > 0) ? `${60 / bpmValue}s` : '1s';
 
   // Status label below the number
   let statusLabel = 'AWAITING SIGNAL';

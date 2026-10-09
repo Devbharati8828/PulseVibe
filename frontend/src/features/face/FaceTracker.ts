@@ -15,7 +15,7 @@ const DEFAULT_CONFIG: TrackingConfig = {
   trackingFramesRequired: 10,
   stabilizingFramesRequired: 20,
   lostFramesThreshold: 15,
-  stabilityThreshold: 0.02,
+  stabilityThreshold: 0.06, // relaxed from 0.02 to allow natural movement
 };
 
 /**
