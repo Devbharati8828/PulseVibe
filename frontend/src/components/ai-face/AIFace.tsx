@@ -12,20 +12,16 @@
  *   - Rim light: deep blue from behind (0, 0, -6)
  *
  * Performance notes:
- *   - dpr clamped to [1, 1.5]
- *   - antialias: false (Bloom provides perceived smoothness)
+ *   - dpr clamped to [1, 1.2]
+ *   - antialias: true (no Bloom, so we need proper AA now)
  *   - alpha: true (transparent background — same as VisionCore)
  */
 
 import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
-import { useSettingsStore } from '../../stores/useSettingsStore';
 import { FaceGeometry } from './FaceGeometry';
-import { FaceEffects } from './FaceEffects';
 
 export function AIFace() {
-  const reducedMotion = useSettingsStore((s) => s.reducedMotion);
-
   return (
     <div className="w-full h-full relative pointer-events-none">
       <Canvas
@@ -33,7 +29,7 @@ export function AIFace() {
         dpr={[1, 1.2]}
         frameloop="demand"
         gl={{
-          antialias: false,
+          antialias: true,
           alpha: true,
           powerPreference: 'low-power',
           failIfMajorPerformanceCaveat: false,
@@ -48,17 +44,16 @@ export function AIFace() {
         }}
       >
         {/* Lighting rig */}
-        <ambientLight intensity={0.35} />
+        <ambientLight intensity={0.4} />
         {/* Key — warm white, upper right */}
-        <pointLight position={[3, 3, 3]} intensity={1.2} color="#e8f4ff" />
+        <pointLight position={[3, 3, 3]} intensity={1.0} color="#e8f4ff" />
         {/* Fill — cool cyan, lower left */}
-        <pointLight position={[-4, -3, -2]} intensity={0.6} color="#22d3ee" />
+        <pointLight position={[-4, -3, -2]} intensity={0.5} color="#22d3ee" />
         {/* Rim — deep blue, behind face */}
-        <pointLight position={[0, 0, -6]} intensity={0.4} color="#0369a1" />
+        <pointLight position={[0, 0, -6]} intensity={0.3} color="#0369a1" />
 
         <Suspense fallback={null}>
           <FaceGeometry />
-          {!reducedMotion && <FaceEffects />}
         </Suspense>
       </Canvas>
     </div>
