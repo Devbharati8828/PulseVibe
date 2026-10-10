@@ -287,33 +287,22 @@ export function FaceGeometry() {
     //  152 = chin bottom
     //   10 = forehead center
     if (landmarks && landmarks.length > 263) {
-      const nose        = landmarks[4];
-      const eyeR        = landmarks[33];   // camera-right eye outer
-      const eyeL        = landmarks[263];  // camera-left  eye outer
-      const chin        = landmarks[152];
+      const nose  = landmarks[4];
+      const eyeR  = landmarks[33];   // camera-right eye outer
+      const eyeL  = landmarks[263];  // camera-left  eye outer
 
       // Eye midpoint (horizontal centre of face)
       const eyeMidX = (eyeR.x + eyeL.x) / 2;
       const eyeMidY = (eyeR.y + eyeL.y) / 2;
 
-      // ── YAW  (turn left / right) ─────────────────────────────────────────
+      // ── YAW  (turn left / right) — only rotation we mirror ───────────────
       // Nose drifts away from eye midpoint when face turns
-      // Camera is mirrored, so flip sign
       const rawYaw = (nose.x - eyeMidX) * 6.0;
       headTarget.current.y = THREE.MathUtils.clamp(rawYaw, -1.2, 1.2);
 
-      // ── PITCH (tilt up / down) ───────────────────────────────────────────
-      // Nose moves below eye midpoint when looking down
-      const faceHeight   = Math.abs(chin.y - eyeMidY) || 0.18;
-      const rawPitch     = ((nose.y - eyeMidY) / faceHeight - 0.55) * 2.5;
-      headTarget.current.x = THREE.MathUtils.clamp(rawPitch, -0.9, 0.9);
-
-      // ── ROLL  (tilt / cant head sideways) ───────────────────────────────
-      // Angle of the eye-line
-      const eyeDeltaY = eyeL.y - eyeR.y;
-      const eyeDeltaX = eyeL.x - eyeR.x;
-      const rawRoll   = -Math.atan2(eyeDeltaY, eyeDeltaX);
-      headTarget.current.z = THREE.MathUtils.clamp(rawRoll, -0.8, 0.8);
+      // Pitch and roll are intentionally disabled — face stays upright/centered
+      headTarget.current.x = 0;
+      headTarget.current.z = 0;
     } else {
       // Fallback idle animation when no face detected
       switch (displayState) {
