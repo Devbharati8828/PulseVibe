@@ -309,7 +309,7 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
       let rotX = 0, rotY = 0, rotZ = 0;
       let driftX = 0, driftY = 0, driftZ = 0;
       let breathScale = 1.0;
-      let idleRingScaleY = 1.0;
+      let idlePupilScaleY = 1.0;
 
       const INTRO_DURATION = 7.0; // total choreography seconds
 
@@ -340,9 +340,9 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
         rotX = Math.sin(p * Math.PI) * 0.06;
         breathScale = 1.0 + 0.03 * Math.sin(t * 2.0);
       } else if (t < 7.0) {
-        // Phase 6: Blink — squash rings & pupils
+        // Phase 6: Blink — squash pupils only
         const p = (t - 6.5) / 0.5; // 0→1
-        idleRingScaleY = p < 0.4
+        idlePupilScaleY = p < 0.4
           ? 1 - (p / 0.4) * 0.9       // close
           : (p - 0.4) / 0.6 * 0.9 + 0.1; // open
         breathScale = 1.0 + 0.02 * Math.sin(t * 1.5);
@@ -356,7 +356,7 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
         driftY = Math.cos(tLoop * 0.7) * 0.05;
         driftZ = Math.sin(tLoop * 0.5) * 0.04;
         breathScale = 1.0 + Math.sin(tLoop * 1.5) * 0.035;
-        idleRingScaleY = 1.0;
+        idlePupilScaleY = 1.0;
       }
 
       if (groupRef.current) {
@@ -379,10 +379,10 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
         mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, colours.emissiveIntensity * 0.7, delta * 3);
       }
 
-      // Eye rings & circular pupils: glow + blink during intro phase 6
+      // Eye rings & circular pupils: glow + pupil blink during intro phase 6
       for (const rRef of [ringLRef, ringRRef]) {
         if (rRef.current) {
-          rRef.current.scale.y = THREE.MathUtils.lerp(rRef.current.scale.y, idleRingScaleY, delta * 25);
+          rRef.current.scale.y = 1.0; // Never squash arcs
           const mat = rRef.current.material as THREE.MeshStandardMaterial;
           mat.emissive.lerp(new THREE.Color(colours.ring), delta * 4);
           mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, colours.ringIntensity, delta * 4);
@@ -390,7 +390,7 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
       }
       for (const pRef of [pupilLRef, pupilRRef]) {
         if (pRef.current) {
-          pRef.current.scale.y = THREE.MathUtils.lerp(pRef.current.scale.y, idleRingScaleY, delta * 25);
+          pRef.current.scale.y = THREE.MathUtils.lerp(pRef.current.scale.y, idlePupilScaleY, delta * 25);
           const mat = pRef.current.material as THREE.MeshStandardMaterial;
           mat.emissive.lerp(new THREE.Color(colours.pupil), delta * 4);
           mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, colours.pupilIntensity, delta * 4);
@@ -583,20 +583,20 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
       }
     }
 
-    // ── Ring & pupil blink: squash vertically when blinking ──────────────────
+    // ── Pupil blink: squash vertically when blinking ──────────────────
     const bP = blink.blinkProgress;
-    const ringScaleY = blink.blinking
+    const pupilScaleY = blink.blinking
       ? (bP < 0.5 ? 1 - (bP / 0.5) * 0.85 : ((bP - 0.5) / 0.5) * 0.85 + 0.15)
       : 1.0;
 
     for (const rRef of [ringLRef, ringRRef]) {
       if (rRef.current) {
-        rRef.current.scale.y = THREE.MathUtils.lerp(rRef.current.scale.y, ringScaleY, delta * 20);
+        rRef.current.scale.y = 1.0; // Never squash arcs
       }
     }
     for (const pRef of [pupilLRef, pupilRRef]) {
       if (pRef.current) {
-        pRef.current.scale.y = THREE.MathUtils.lerp(pRef.current.scale.y, ringScaleY, delta * 20);
+        pRef.current.scale.y = THREE.MathUtils.lerp(pRef.current.scale.y, pupilScaleY, delta * 20);
       }
     }
   });
