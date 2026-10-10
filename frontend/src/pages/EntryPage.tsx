@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
-import { VisionCore } from '../components/vision-core/VisionCore';
+import { AIFace } from '../components/ai-face/AIFace';
 import { useEngineStore } from '../stores/useEngineStore';
 import { useEffect } from 'react';
 
@@ -16,7 +16,7 @@ export default function EntryPage() {
     <div className="flex flex-col items-center justify-center min-h-[80vh] text-center px-4">
       
       <div className="w-64 h-64 mb-8">
-        <VisionCore />
+        <AIFace mode="idle" />
       </div>
 
       <h1 className="text-4xl md:text-6xl font-mono-data font-bold text-cyan-glow text-glow-cyan tracking-[0.2em] mb-4">

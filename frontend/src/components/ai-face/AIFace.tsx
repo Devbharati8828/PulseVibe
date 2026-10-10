@@ -21,7 +21,11 @@ import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
 import { FaceGeometry } from './FaceGeometry';
 
-export function AIFace() {
+export interface AIFaceProps {
+  mode?: 'live' | 'idle';
+}
+
+export function AIFace({ mode = 'live' }: AIFaceProps) {
   return (
     <div className="w-full h-full relative pointer-events-none">
       <Canvas
@@ -53,7 +57,7 @@ export function AIFace() {
         <pointLight position={[0, 0, -6]} intensity={0.3} color="#0369a1" />
 
         <Suspense fallback={null}>
-          <FaceGeometry />
+          <FaceGeometry mode={mode} />
         </Suspense>
       </Canvas>
     </div>

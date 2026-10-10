@@ -193,7 +193,11 @@ function getColourTarget(state: DisplayState, t: number, bpm: number): ColourTar
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function FaceGeometry() {
+export interface FaceGeometryProps {
+  mode?: 'live' | 'idle';
+}
+
+export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
   // Engine state (read-only subscriptions)
   const trackingState = useEngineStore((s) => s.viewModel?.trackingState);
   const bpm = useEngineStore((s) => s.viewModel?.bpm ?? 72);
@@ -261,6 +265,67 @@ export function FaceGeometry() {
   useFrame((state, delta) => {
     state.invalidate(); // required: canvas is in frameloop='demand' mode
     const t = state.clock.getElapsedTime();
+
+    // ── IDLE MODE (e.g. Landing Page / Splash screen orb) ────────────────────
+    // No camera input. Static face at rest, slow idle rotation, gentle
+    // breathing-scale pulse, and slight drift.
+    if (mode === 'idle') {
+      const colours = getColourTarget('idle', t, 72);
+
+      // Update scan-line shader uniforms
+      if (skullMatRef.current?.userData.shader) {
+        skullMatRef.current.userData.shader.uniforms.uTime.value = t;
+        skullMatRef.current.userData.shader.uniforms.uScanActive.value = 0.0;
+      }
+
+      // Slow idle rotation: graceful sinusoidal yaw rotation (~18 degrees left/right)
+      // and subtle micro-nodding
+      const rotY = Math.sin(t * 0.45) * 0.32;
+      const rotX = Math.sin(t * 0.30) * 0.05;
+      const rotZ = Math.sin(t * 0.25) * 0.02;
+
+      // Slight floating drift
+      const driftX = Math.sin(t * 0.6) * 0.06;
+      const driftY = Math.cos(t * 0.7) * 0.05;
+      const driftZ = Math.sin(t * 0.5) * 0.04;
+
+      // Gentle breathing-scale pulse (~14-15 breaths/minute)
+      const breathScale = 1.0 + Math.sin(t * 1.5) * 0.035;
+
+      if (groupRef.current) {
+        groupRef.current.position.set(driftX, driftY, driftZ);
+        groupRef.current.rotation.set(rotX, rotY, rotZ);
+        groupRef.current.scale.set(breathScale, breathScale, breathScale);
+      }
+
+      // Skull material colors
+      if (skullRef.current) {
+        const mat = skullRef.current.material as THREE.MeshStandardMaterial;
+        mat.color.lerp(new THREE.Color(colours.skull), delta * 2);
+        mat.emissive.lerp(new THREE.Color(colours.emissive), delta * 2);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(
+          mat.emissiveIntensity,
+          colours.emissiveIntensity,
+          delta * 3,
+        );
+      }
+
+      // Eye rings: static at rest (scale.y = 1, no blinking) with resting glow
+      for (const ringRef of [ringLRef, ringRRef]) {
+        if (ringRef.current) {
+          ringRef.current.scale.y = 1.0;
+          const mat = ringRef.current.material as THREE.MeshStandardMaterial;
+          mat.emissive.lerp(new THREE.Color(colours.ring), delta * 4);
+          mat.emissiveIntensity = THREE.MathUtils.lerp(
+            mat.emissiveIntensity,
+            colours.ringIntensity,
+            delta * 4,
+          );
+        }
+      }
+
+      return;
+    }
     const displayState = toDisplayState(trackingState as FaceTrackingState, motionWarning);
     const colours = getColourTarget(displayState, t, bpm ?? 72);
 
