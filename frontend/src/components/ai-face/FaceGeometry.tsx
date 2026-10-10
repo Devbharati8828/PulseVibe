@@ -279,44 +279,66 @@ export function FaceGeometry() {
         );
     }
 
-    // ── Head rotation targets ────────────────────────────────────────────────
-    switch (displayState) {
-      case 'idle':
-        // Gentle bob
-        headTarget.current.x = Math.sin(t * 0.4) * 0.04;
-        headTarget.current.y = Math.sin(t * 0.3) * 0.03;
-        headTarget.current.z = 0;
-        break;
-      case 'scanning':
-        // Face turns toward camera / user
-        headTarget.current.x = 0;
-        headTarget.current.y = 0; // straight ahead
-        headTarget.current.z = 0;
-        break;
-      case 'locked':
-      case 'acquiring':
-      case 'processing':
-      case 'stabilized':
-        // Nearly still — attentive, settled
-        headTarget.current.x = Math.sin(t * 0.2) * 0.01;
-        headTarget.current.y = Math.sin(t * 0.15) * 0.01;
-        headTarget.current.z = 0;
-        break;
-      case 'alert':
-        // Subtle concerned tilt
-        headTarget.current.x = Math.sin(t * 2.5) * 0.05;
-        headTarget.current.y = Math.sin(t * 1.8) * 0.04;
-        headTarget.current.z = Math.sin(t * 2.0) * 0.03;
-        break;
+    // ── Head pose from face landmarks (yaw / pitch / roll) ──────────────────
+    // Uses key MediaPipe face mesh points:
+    //   4  = nose tip
+    //   33 = right eye outer corner (from camera POV)
+    //  263 = left  eye outer corner (from camera POV)
+    //  152 = chin bottom
+    //   10 = forehead center
+    if (landmarks && landmarks.length > 263) {
+      const nose        = landmarks[4];
+      const eyeR        = landmarks[33];   // camera-right eye outer
+      const eyeL        = landmarks[263];  // camera-left  eye outer
+      const chin        = landmarks[152];
+
+      // Eye midpoint (horizontal centre of face)
+      const eyeMidX = (eyeR.x + eyeL.x) / 2;
+      const eyeMidY = (eyeR.y + eyeL.y) / 2;
+
+      // ── YAW  (turn left / right) ─────────────────────────────────────────
+      // Nose drifts away from eye midpoint when face turns
+      // Camera is mirrored, so flip sign
+      const rawYaw = (nose.x - eyeMidX) * 6.0;
+      headTarget.current.y = THREE.MathUtils.clamp(rawYaw, -1.2, 1.2);
+
+      // ── PITCH (tilt up / down) ───────────────────────────────────────────
+      // Nose moves below eye midpoint when looking down
+      const faceHeight   = Math.abs(chin.y - eyeMidY) || 0.18;
+      const rawPitch     = ((nose.y - eyeMidY) / faceHeight - 0.55) * 2.5;
+      headTarget.current.x = THREE.MathUtils.clamp(rawPitch, -0.9, 0.9);
+
+      // ── ROLL  (tilt / cant head sideways) ───────────────────────────────
+      // Angle of the eye-line
+      const eyeDeltaY = eyeL.y - eyeR.y;
+      const eyeDeltaX = eyeL.x - eyeR.x;
+      const rawRoll   = -Math.atan2(eyeDeltaY, eyeDeltaX);
+      headTarget.current.z = THREE.MathUtils.clamp(rawRoll, -0.8, 0.8);
+    } else {
+      // Fallback idle animation when no face detected
+      switch (displayState) {
+        case 'idle':
+          headTarget.current.x = Math.sin(t * 0.4) * 0.04;
+          headTarget.current.y = Math.sin(t * 0.3) * 0.03;
+          headTarget.current.z = 0;
+          break;
+        case 'alert':
+          headTarget.current.x = Math.sin(t * 2.5) * 0.05;
+          headTarget.current.y = Math.sin(t * 1.8) * 0.04;
+          headTarget.current.z = Math.sin(t * 2.0) * 0.03;
+          break;
+        default:
+          headTarget.current.x = Math.sin(t * 0.2) * 0.01;
+          headTarget.current.y = Math.sin(t * 0.15) * 0.01;
+          headTarget.current.z = 0;
+      }
     }
 
-    // ── Head movement target ────────────────────────────────────────────────
+    // ── Head movement target (position) ─────────────────────────────────────
     let targetPosX = 0;
     let targetPosY = 0;
     
     if (faceBounds) {
-      // Map normalized (0-1) bounds to spatial offset. 
-      // Multiplier (2.0) defines the spatial range (± ~20-30px equivalent)
       targetPosX = (faceBounds.x + faceBounds.width / 2 - 0.5) * 2.0;
       targetPosY = (0.5 - (faceBounds.y + faceBounds.height / 2)) * 2.0;
     }
@@ -326,21 +348,21 @@ export function FaceGeometry() {
       groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetPosX, delta * 5);
       groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, targetPosY, delta * 5);
 
-      // Rotation shifting
+      // Rotation — smooth lerp toward head pose target
       groupRef.current.rotation.x = THREE.MathUtils.lerp(
         groupRef.current.rotation.x,
         headTarget.current.x,
-        delta * 3,
+        delta * 6,
       );
       groupRef.current.rotation.y = THREE.MathUtils.lerp(
         groupRef.current.rotation.y,
         headTarget.current.y,
-        delta * 3,
+        delta * 6,
       );
       groupRef.current.rotation.z = THREE.MathUtils.lerp(
         groupRef.current.rotation.z,
         headTarget.current.z,
-        delta * 2,
+        delta * 5,
       );
     }
 
