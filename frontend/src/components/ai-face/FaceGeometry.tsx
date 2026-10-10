@@ -127,66 +127,66 @@ function getColourTarget(state: DisplayState, t: number, bpm: number): ColourTar
   switch (state) {
     case 'idle':
       return {
-        skull: '#0f2238',
-        emissive: '#0c3a5a',
-        emissiveIntensity: 0.28 + Math.sin(t * 0.6) * 0.05,
-        ring: '#22d3ee',
-        ringIntensity: 0.85 + Math.sin(t * 0.8) * 0.1,
-        pupil: '#67e8f9',
-        pupilIntensity: 1.0,
+        skull: '#22d3ee',         // vivid cyan — matches reference
+        emissive: '#0ea5e9',
+        emissiveIntensity: 1.2 + Math.sin(t * 0.6) * 0.15,
+        ring: '#ffffff',           // white crescent eyes
+        ringIntensity: 2.0 + Math.sin(t * 0.8) * 0.2,
+        pupil: '#ffffff',
+        pupilIntensity: 2.0,
       };
     case 'scanning':
       return {
-        skull: '#0c2440',
+        skull: '#38bdf8',
         emissive: '#0ea5e9',
-        emissiveIntensity: 0.7 + Math.sin(t * 7) * 0.3,
-        ring: '#22d3ee',
-        ringIntensity: 1.0,
-        pupil: '#67e8f9',
-        pupilIntensity: 1.2 + Math.sin(t * 9) * 0.4,
+        emissiveIntensity: 1.4 + Math.sin(t * 7) * 0.3,
+        ring: '#ffffff',
+        ringIntensity: 2.2 + Math.sin(t * 9) * 0.4,
+        pupil: '#e0f7ff',
+        pupilIntensity: 2.4 + Math.sin(t * 9) * 0.4,
       };
     case 'locked':
     case 'acquiring':
       return {
-        skull: '#0a2035',
+        skull: '#7dd3fc',
         emissive: '#0ea5e9',
-        emissiveIntensity: 1.0,
-        ring: '#38bdf8',
-        ringIntensity: 1.4,
-        pupil: '#7dd3fc',
-        pupilIntensity: 1.8,
+        emissiveIntensity: 1.6,
+        ring: '#ffffff',
+        ringIntensity: 2.8,
+        pupil: '#f0faff',
+        pupilIntensity: 3.0,
       };
     case 'processing':
       return {
-        skull: '#061e30',
+        skull: '#22d3ee',
         emissive: '#06b6d4',
-        emissiveIntensity: 0.9,
-        ring: '#22d3ee',
-        ringIntensity: 1.2,
-        pupil: '#a5f3fc',
-        pupilIntensity: 1.5 + Math.sin(t * 12) * 0.5, // rapid thought pulse
+        emissiveIntensity: 1.4,
+        ring: '#ffffff',
+        ringIntensity: 2.4,
+        pupil: '#e0f7ff',
+        pupilIntensity: 2.0 + Math.sin(t * 12) * 0.5,
       };
     case 'stabilized': {
       const pulse = Math.sin(t * Math.PI * 2 * bpmFreq);
       return {
-        skull: '#061a28',
+        skull: '#0ea5e9',
         emissive: '#0891b2',
-        emissiveIntensity: 0.8 + pulse * 0.3,
-        ring: '#22d3ee',
-        ringIntensity: 1.0 + pulse * 0.4,
-        pupil: '#67e8f9',
-        pupilIntensity: 1.2 + pulse * 0.5,
+        emissiveIntensity: 1.2 + pulse * 0.4,
+        ring: '#ffffff',
+        ringIntensity: 2.2 + pulse * 0.5,
+        pupil: '#e0f7ff',
+        pupilIntensity: 2.0 + pulse * 0.6,
       };
     }
     case 'alert':
       return {
-        skull: '#1a0e00',
+        skull: '#f97316',
         emissive: '#d97706',
-        emissiveIntensity: 0.8 + Math.sin(t * 5) * 0.4, // amber pulse
-        ring: '#f59e0b',
-        ringIntensity: 1.2,
-        pupil: '#fbbf24',
-        pupilIntensity: 0.9 + Math.sin(t * 6) * 0.4,
+        emissiveIntensity: 1.2 + Math.sin(t * 5) * 0.4,
+        ring: '#fef9c3',
+        ringIntensity: 2.2,
+        pupil: '#fde68a',
+        pupilIntensity: 1.8 + Math.sin(t * 6) * 0.4,
       };
   }
 }
@@ -234,17 +234,19 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
     return g;
   }, []);
 
-  const chinGeo = useMemo(() => new THREE.CylinderGeometry(0.35, 0.18, 0.5, 32), []);
-  const ringGeo = useMemo(() => new THREE.TorusGeometry(0.22, 0.018, 16, 64), []);
+  const chinGeo = useMemo(() => new THREE.CylinderGeometry(0.35, 0.2, 0.55, 32), []);
+  // Thicker, larger eye rings — matches the reference photo
+  const ringGeo = useMemo(() => new THREE.TorusGeometry(0.26, 0.026, 16, 80), []);
 
   // ── Skull material (patched with scan-line shader) ────────────────────────
+  // Start bright cyan from the very first frame
   const skullMat = useMemo(() => {
     const m = new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#0f2238'),
-      emissive: new THREE.Color('#0c3a5a'),
-      emissiveIntensity: 0.28,
-      roughness: 0.3,
-      metalness: 0.8,
+      color: new THREE.Color('#22d3ee'),
+      emissive: new THREE.Color('#0ea5e9'),
+      emissiveIntensity: 1.2,
+      roughness: 0.45,
+      metalness: 0.1,
     });
     patchMaterial(m);
     skullMatRef.current = m;
@@ -523,49 +525,50 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
   });
 
   // Eye positions (local to group, relative to skull centre)
-  const EYE_Y = 0.18;
-  const EYE_X = 0.265;
-  const EYE_Z = 0.68; // slightly forward of the skull surface centre
+  // Moved up slightly and wider apart to match the reference photo
+  const EYE_Y = 0.22;
+  const EYE_X = 0.30;
+  const EYE_Z = 0.70;
 
   return (
     <group ref={groupRef}>
       {/* ── Skull ──────────────────────────────────────────────────────── */}
       <mesh ref={skullRef} geometry={skullGeo} material={skullMat} />
 
-      {/* ── Chin taper ─────────────────────────────────────────────────── */}
+      {/* ── Chin taper — same bright cyan as skull ──────────────────────── */}
       <mesh ref={chinRef} geometry={chinGeo} position={[0, -0.88, 0]}>
         <meshStandardMaterial
-          color="#0f2238"
-          emissive="#0c3a5a"
-          emissiveIntensity={0.2}
-          roughness={0.3}
-          metalness={0.8}
+          color="#22d3ee"
+          emissive="#0ea5e9"
+          emissiveIntensity={1.0}
+          roughness={0.45}
+          metalness={0.1}
         />
       </mesh>
 
-      {/* ── Left eye socket ring ────────────────────────────────────────── */}
+      {/* ── Left eye socket ring — white crescent ───────────────────────── */}
       <mesh ref={ringLRef} geometry={ringGeo} position={[-EYE_X, EYE_Y, EYE_Z]}>
         <meshStandardMaterial
-          color="#082f49"
-          emissive="#22d3ee"
-          emissiveIntensity={0.85}
-          roughness={0.1}
-          metalness={0.9}
+          color="#e0f7ff"
+          emissive="#ffffff"
+          emissiveIntensity={2.0}
+          roughness={0.05}
+          metalness={0.0}
           transparent
-          opacity={0.95}
+          opacity={1.0}
         />
       </mesh>
 
-      {/* ── Right eye socket ring ───────────────────────────────────────── */}
+      {/* ── Right eye socket ring — white crescent ──────────────────────── */}
       <mesh ref={ringRRef} geometry={ringGeo} position={[EYE_X, EYE_Y, EYE_Z]}>
         <meshStandardMaterial
-          color="#082f49"
-          emissive="#22d3ee"
-          emissiveIntensity={0.85}
-          roughness={0.1}
-          metalness={0.9}
+          color="#e0f7ff"
+          emissive="#ffffff"
+          emissiveIntensity={2.0}
+          roughness={0.05}
+          metalness={0.0}
           transparent
-          opacity={0.95}
+          opacity={1.0}
         />
       </mesh>
 
