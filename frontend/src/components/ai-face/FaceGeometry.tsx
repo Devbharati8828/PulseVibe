@@ -127,13 +127,13 @@ function getColourTarget(state: DisplayState, t: number, bpm: number): ColourTar
   switch (state) {
     case 'idle':
       return {
-        skull: '#0d1a2a',
-        emissive: '#071420',
-        emissiveIntensity: 0.08 + Math.sin(t * 0.6) * 0.03,
-        ring: '#0a4a60',
-        ringIntensity: 0.1,
-        pupil: '#0d8fa8',
-        pupilIntensity: 0.12 + Math.sin(t * 0.5) * 0.04,
+        skull: '#0f2238',
+        emissive: '#0c3a5a',
+        emissiveIntensity: 0.28 + Math.sin(t * 0.6) * 0.05,
+        ring: '#22d3ee',
+        ringIntensity: 0.85 + Math.sin(t * 0.8) * 0.1,
+        pupil: '#67e8f9',
+        pupilIntensity: 1.0,
       };
     case 'scanning':
       return {
@@ -240,11 +240,11 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
   // ── Skull material (patched with scan-line shader) ────────────────────────
   const skullMat = useMemo(() => {
     const m = new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#0d1a2a'),
+      color: new THREE.Color('#0f2238'),
       emissive: new THREE.Color('#0c3a5a'),
-      emissiveIntensity: 0.18,
-      roughness: 0.25,
-      metalness: 0.85,
+      emissiveIntensity: 0.28,
+      roughness: 0.3,
+      metalness: 0.8,
     });
     patchMaterial(m);
     skullMatRef.current = m;
@@ -298,7 +298,7 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
         groupRef.current.scale.set(breathScale, breathScale, breathScale);
       }
 
-      // Skull material colors
+      // Skull & chin material colors
       if (skullRef.current) {
         const mat = skullRef.current.material as THREE.MeshStandardMaterial;
         mat.color.lerp(new THREE.Color(colours.skull), delta * 2);
@@ -306,6 +306,16 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
         mat.emissiveIntensity = THREE.MathUtils.lerp(
           mat.emissiveIntensity,
           colours.emissiveIntensity,
+          delta * 3,
+        );
+      }
+      if (chinRef.current) {
+        const mat = chinRef.current.material as THREE.MeshStandardMaterial;
+        mat.color.lerp(new THREE.Color(colours.skull), delta * 2);
+        mat.emissive.lerp(new THREE.Color(colours.emissive), delta * 2);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(
+          mat.emissiveIntensity,
+          colours.emissiveIntensity * 0.7,
           delta * 3,
         );
       }
@@ -416,7 +426,7 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
       );
     }
 
-    // ── Skull colours ────────────────────────────────────────────────────────
+    // ── Skull & Chin colours ─────────────────────────────────────────────────
     if (skullRef.current) {
       const mat = skullRef.current.material as THREE.MeshStandardMaterial;
       mat.color.lerp(new THREE.Color(colours.skull), delta * 2);
@@ -424,6 +434,16 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
       mat.emissiveIntensity = THREE.MathUtils.lerp(
         mat.emissiveIntensity,
         colours.emissiveIntensity,
+        delta * 3,
+      );
+    }
+    if (chinRef.current) {
+      const mat = chinRef.current.material as THREE.MeshStandardMaterial;
+      mat.color.lerp(new THREE.Color(colours.skull), delta * 2);
+      mat.emissive.lerp(new THREE.Color(colours.emissive), delta * 2);
+      mat.emissiveIntensity = THREE.MathUtils.lerp(
+        mat.emissiveIntensity,
+        colours.emissiveIntensity * 0.7,
         delta * 3,
       );
     }
@@ -515,37 +535,37 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
       {/* ── Chin taper ─────────────────────────────────────────────────── */}
       <mesh ref={chinRef} geometry={chinGeo} position={[0, -0.88, 0]}>
         <meshStandardMaterial
-          color="#0a1520"
+          color="#0f2238"
           emissive="#0c3a5a"
-          emissiveIntensity={0.1}
+          emissiveIntensity={0.2}
           roughness={0.3}
-          metalness={0.9}
+          metalness={0.8}
         />
       </mesh>
 
       {/* ── Left eye socket ring ────────────────────────────────────────── */}
       <mesh ref={ringLRef} geometry={ringGeo} position={[-EYE_X, EYE_Y, EYE_Z]}>
         <meshStandardMaterial
-          color="#061018"
-          emissive="#0e7490"
-          emissiveIntensity={0.3}
+          color="#082f49"
+          emissive="#22d3ee"
+          emissiveIntensity={0.85}
           roughness={0.1}
-          metalness={1.0}
+          metalness={0.9}
           transparent
-          opacity={0.92}
+          opacity={0.95}
         />
       </mesh>
 
       {/* ── Right eye socket ring ───────────────────────────────────────── */}
       <mesh ref={ringRRef} geometry={ringGeo} position={[EYE_X, EYE_Y, EYE_Z]}>
         <meshStandardMaterial
-          color="#061018"
-          emissive="#0e7490"
-          emissiveIntensity={0.3}
+          color="#082f49"
+          emissive="#22d3ee"
+          emissiveIntensity={0.85}
           roughness={0.1}
-          metalness={1.0}
+          metalness={0.9}
           transparent
-          opacity={0.92}
+          opacity={0.95}
         />
       </mesh>
 

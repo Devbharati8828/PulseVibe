@@ -48,13 +48,13 @@ export function AIFace({ mode = 'live' }: AIFaceProps) {
         }}
       >
         {/* Lighting rig */}
-        <ambientLight intensity={0.4} />
+        <ambientLight intensity={0.65} />
         {/* Key — warm white, upper right */}
-        <pointLight position={[3, 3, 3]} intensity={1.0} color="#e8f4ff" />
+        <pointLight position={[3, 3, 3]} intensity={1.2} color="#e8f4ff" />
         {/* Fill — cool cyan, lower left */}
-        <pointLight position={[-4, -3, -2]} intensity={0.5} color="#22d3ee" />
+        <pointLight position={[-4, -3, -2]} intensity={0.7} color="#22d3ee" />
         {/* Rim — deep blue, behind face */}
-        <pointLight position={[0, 0, -6]} intensity={0.3} color="#0369a1" />
+        <pointLight position={[0, 0, -6]} intensity={0.4} color="#0369a1" />
 
         <Suspense fallback={null}>
           <FaceGeometry mode={mode} />
