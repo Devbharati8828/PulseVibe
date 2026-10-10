@@ -21,7 +21,6 @@ import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
 import { useSettingsStore } from '../../stores/useSettingsStore';
 import { FaceGeometry } from './FaceGeometry';
-import { FaceParticles } from './FaceParticles';
 import { FaceEffects } from './FaceEffects';
 
 export function AIFace() {
@@ -59,7 +58,6 @@ export function AIFace() {
 
         <Suspense fallback={null}>
           <FaceGeometry />
-          {!reducedMotion && <FaceParticles />}
           {!reducedMotion && <FaceEffects />}
         </Suspense>
       </Canvas>

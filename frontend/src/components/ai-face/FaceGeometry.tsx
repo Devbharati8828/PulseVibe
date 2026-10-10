@@ -503,7 +503,7 @@ export function FaceGeometry() {
           transparent
           opacity={0.95}
           depthWrite={false}
-          blending={THREE.AdditiveBlending}
+          blending={THREE.NormalBlending}
         />
       </mesh>
 
@@ -518,7 +518,7 @@ export function FaceGeometry() {
           transparent
           opacity={0.95}
           depthWrite={false}
-          blending={THREE.AdditiveBlending}
+          blending={THREE.NormalBlending}
         />
       </mesh>
     </group>
