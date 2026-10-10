@@ -26,13 +26,14 @@ export function FaceEffects() {
     trackingState === 'locking' ||
     trackingState === 'DETECTED';
 
-  const intensity = isActive ? 1.6 : isScanning ? 1.1 : 0.7;
-  const radius = isScanning ? 0.9 : isAlert ? 0.7 : 0.4;
+  // Idle = 0.0 so no bloom rays shoot out on startup before face is tracked
+  const intensity = isActive ? 1.4 : isScanning ? 0.8 : isAlert ? 0.9 : 0.0;
+  const radius = isScanning ? 0.6 : isAlert ? 0.5 : 0.3;
 
   return (
     <EffectComposer>
       <Bloom
-        luminanceThreshold={0.15}
+        luminanceThreshold={0.3}
         mipmapBlur
         intensity={intensity}
         radius={radius}

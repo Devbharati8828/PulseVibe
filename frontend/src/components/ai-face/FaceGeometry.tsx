@@ -128,12 +128,12 @@ function getColourTarget(state: DisplayState, t: number, bpm: number): ColourTar
     case 'idle':
       return {
         skull: '#0d1a2a',
-        emissive: '#0c3a5a',
-        emissiveIntensity: 0.18 + Math.sin(t * 0.6) * 0.06,
-        ring: '#0e7490',
-        ringIntensity: 0.3,
-        pupil: '#22d3ee',
-        pupilIntensity: 0.5 + Math.sin(t * 0.5) * 0.15,
+        emissive: '#071420',
+        emissiveIntensity: 0.08 + Math.sin(t * 0.6) * 0.03,
+        ring: '#0a4a60',
+        ringIntensity: 0.1,
+        pupil: '#0d8fa8',
+        pupilIntensity: 0.12 + Math.sin(t * 0.5) * 0.04,
       };
     case 'scanning':
       return {
