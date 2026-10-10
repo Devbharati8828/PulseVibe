@@ -213,6 +213,8 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
   const chinRef = useRef<THREE.Mesh>(null);
   const ringLRef = useRef<THREE.Mesh>(null);
   const ringRRef = useRef<THREE.Mesh>(null);
+  const pupilLRef = useRef<THREE.Mesh>(null);
+  const pupilRRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
 
   // ── Blink system (ref-based, zero re-renders) ─────────────────────────────
@@ -244,6 +246,9 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
     [],
   );
 
+  // Circular eyes/pupils sitting under each arc
+  const pupilGeo = useMemo(() => new THREE.CircleGeometry(0.075, 32), []);
+
   // ── Skull material (patched with scan-line shader) ────────────────────────
   // Comfortable sky blue — soft, not blinding, matches reference photo
   const skullMat = useMemo(() => {
@@ -265,9 +270,10 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
       skullGeo.dispose();
       chinGeo.dispose();
       ringGeo.dispose();
+      pupilGeo.dispose();
       skullMat.dispose();
     };
-  }, [skullGeo, chinGeo, ringGeo, skullMat]);
+  }, [skullGeo, chinGeo, ringGeo, pupilGeo, skullMat]);
 
   // ── Animation loop ────────────────────────────────────────────────────────
   useFrame((state, delta) => {
@@ -328,7 +334,7 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
         );
       }
 
-      // Eye rings: static at rest (scale.y = 1, no blinking) with resting glow
+      // Eye rings & circular pupils: static at rest with gentle resting glow
       for (const ringRef of [ringLRef, ringRRef]) {
         if (ringRef.current) {
           ringRef.current.scale.y = 1.0;
@@ -337,6 +343,18 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
           mat.emissiveIntensity = THREE.MathUtils.lerp(
             mat.emissiveIntensity,
             colours.ringIntensity,
+            delta * 4,
+          );
+        }
+      }
+      for (const pRef of [pupilLRef, pupilRRef]) {
+        if (pRef.current) {
+          pRef.current.scale.y = 1.0;
+          const mat = pRef.current.material as THREE.MeshStandardMaterial;
+          mat.emissive.lerp(new THREE.Color(colours.pupil), delta * 4);
+          mat.emissiveIntensity = THREE.MathUtils.lerp(
+            mat.emissiveIntensity,
+            colours.pupilIntensity,
             delta * 4,
           );
         }
@@ -456,7 +474,7 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
       );
     }
 
-    // ── Eye ring colours ─────────────────────────────────────────────────────
+    // ── Eye ring & pupil colours ─────────────────────────────────────────────
     for (const ringRef of [ringLRef, ringRRef]) {
       if (ringRef.current) {
         const mat = ringRef.current.material as THREE.MeshStandardMaterial;
@@ -464,6 +482,17 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
         mat.emissiveIntensity = THREE.MathUtils.lerp(
           mat.emissiveIntensity,
           colours.ringIntensity,
+          delta * 4,
+        );
+      }
+    }
+    for (const pRef of [pupilLRef, pupilRRef]) {
+      if (pRef.current) {
+        const mat = pRef.current.material as THREE.MeshStandardMaterial;
+        mat.emissive.lerp(new THREE.Color(colours.pupil), delta * 4);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(
+          mat.emissiveIntensity,
+          colours.pupilIntensity,
           delta * 4,
         );
       }
@@ -517,7 +546,7 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
       }
     }
 
-    // ── Ring blink: squash rings vertically when blinking ───────────────────
+    // ── Ring & pupil blink: squash vertically when blinking ──────────────────
     const bP = blink.blinkProgress;
     const ringScaleY = blink.blinking
       ? (bP < 0.5 ? 1 - (bP / 0.5) * 0.85 : ((bP - 0.5) / 0.5) * 0.85 + 0.15)
@@ -528,12 +557,21 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
         rRef.current.scale.y = THREE.MathUtils.lerp(rRef.current.scale.y, ringScaleY, delta * 20);
       }
     }
+    for (const pRef of [pupilLRef, pupilRRef]) {
+      if (pRef.current) {
+        pRef.current.scale.y = THREE.MathUtils.lerp(pRef.current.scale.y, ringScaleY, delta * 20);
+      }
+    }
   });
 
   // Eye positions — proportionate placement within the skull contour
   const EYE_Y = 0.18;
   const EYE_X = 0.23;
   const EYE_Z = 0.65;
+
+  // Circular pupil positions — placed directly under/inside each arc
+  const PUPIL_Y = 0.14;
+  const PUPIL_Z = 0.66;
 
   // Arc length is 1.5π (270°). Gap original center = 315°.
   // Rotating by -45° (-Math.PI * 0.25) places:
@@ -557,7 +595,7 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
         />
       </mesh>
 
-      {/* ── Left eye — partial-arc crescent, arched at top, open at bottom ─ */}
+      {/* ── Left eye arc — partial-arc crescent, arched at top ──────────── */}
       <mesh
         ref={ringLRef}
         geometry={ringGeo}
@@ -575,7 +613,24 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
         />
       </mesh>
 
-      {/* ── Right eye — symmetric arch, slightly angled outward to contour face ─ */}
+      {/* ── Left eye circle (pupil) — under the left arc ────────────────── */}
+      <mesh
+        ref={pupilLRef}
+        geometry={pupilGeo}
+        position={[-EYE_X, PUPIL_Y, PUPIL_Z]}
+        rotation={[0, -0.22, 0]}
+      >
+        <meshStandardMaterial
+          color="#f0f9ff"
+          emissive="#ffffff"
+          emissiveIntensity={1.8}
+          roughness={0.1}
+          metalness={0.0}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* ── Right eye arc — symmetric arch, arched at top ───────────────── */}
       <mesh
         ref={ringRRef}
         geometry={ringGeo}
@@ -590,6 +645,23 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
           metalness={0.0}
           transparent
           opacity={1.0}
+        />
+      </mesh>
+
+      {/* ── Right eye circle (pupil) — under the right arc ───────────────── */}
+      <mesh
+        ref={pupilRRef}
+        geometry={pupilGeo}
+        position={[EYE_X, PUPIL_Y, PUPIL_Z]}
+        rotation={[0, 0.22, 0]}
+      >
+        <meshStandardMaterial
+          color="#f0f9ff"
+          emissive="#ffffff"
+          emissiveIntensity={1.8}
+          roughness={0.1}
+          metalness={0.0}
+          side={THREE.DoubleSide}
         />
       </mesh>
 
