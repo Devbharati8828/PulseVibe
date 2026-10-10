@@ -246,8 +246,9 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
     [],
   );
 
-  // Circular eyes/pupils sitting under each arc
-  const pupilGeo = useMemo(() => new THREE.CircleGeometry(0.075, 32), []);
+  // Circular eyes/pupils — small spheres that protrude from the face surface
+  // Using SphereGeometry instead of CircleGeometry avoids z-clipping with the skull
+  const pupilGeo = useMemo(() => new THREE.SphereGeometry(0.075, 16, 16), []);
 
   // ── Skull material (patched with scan-line shader) ────────────────────────
   // Comfortable sky blue — soft, not blinding, matches reference photo
@@ -569,9 +570,10 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
   const EYE_X = 0.23;
   const EYE_Z = 0.65;
 
-  // Circular pupil positions — placed directly under/inside each arc
-  const PUPIL_Y = 0.14;
-  const PUPIL_Z = 0.66;
+  // Circular pupil positions — pushed clearly OUTSIDE the skull surface
+  // Skull Z-surface at (EYE_X=0.23, PUPIL_Y=0.10) ≈ 0.684, so 0.74 is safely outside
+  const PUPIL_Y = 0.10;   // below the arc center
+  const PUPIL_Z = 0.74;  // clearly in front of the skull surface
 
   // Arc length is 1.5π (270°). Gap original center = 315°.
   // Rotating by -45° (-Math.PI * 0.25) places:
@@ -613,20 +615,18 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
         />
       </mesh>
 
-      {/* ── Left eye circle (pupil) — under the left arc ────────────────── */}
+      {/* ── Left eye circle (pupil) — small sphere on face surface ─────── */}
       <mesh
         ref={pupilLRef}
         geometry={pupilGeo}
         position={[-EYE_X, PUPIL_Y, PUPIL_Z]}
-        rotation={[0, -0.22, 0]}
       >
         <meshStandardMaterial
           color="#f0f9ff"
           emissive="#ffffff"
-          emissiveIntensity={1.8}
-          roughness={0.1}
+          emissiveIntensity={2.2}
+          roughness={0.05}
           metalness={0.0}
-          side={THREE.DoubleSide}
         />
       </mesh>
 
@@ -648,20 +648,18 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
         />
       </mesh>
 
-      {/* ── Right eye circle (pupil) — under the right arc ───────────────── */}
+      {/* ── Right eye circle (pupil) — small sphere on face surface ────── */}
       <mesh
         ref={pupilRRef}
         geometry={pupilGeo}
         position={[EYE_X, PUPIL_Y, PUPIL_Z]}
-        rotation={[0, 0.22, 0]}
       >
         <meshStandardMaterial
           color="#f0f9ff"
           emissive="#ffffff"
-          emissiveIntensity={1.8}
-          roughness={0.1}
+          emissiveIntensity={2.2}
+          roughness={0.05}
           metalness={0.0}
-          side={THREE.DoubleSide}
         />
       </mesh>
 
