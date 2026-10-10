@@ -207,8 +207,6 @@ export function FaceGeometry() {
   const chinRef = useRef<THREE.Mesh>(null);
   const ringLRef = useRef<THREE.Mesh>(null);
   const ringRRef = useRef<THREE.Mesh>(null);
-  const pupilLRef = useRef<THREE.Mesh>(null);
-  const pupilRRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
 
   // ── Blink system (ref-based, zero re-renders) ─────────────────────────────
@@ -234,7 +232,6 @@ export function FaceGeometry() {
 
   const chinGeo = useMemo(() => new THREE.CylinderGeometry(0.35, 0.18, 0.5, 32), []);
   const ringGeo = useMemo(() => new THREE.TorusGeometry(0.22, 0.018, 16, 64), []);
-  const pupilGeo = useMemo(() => new THREE.CircleGeometry(0.1, 32), []);
 
   // ── Skull material (patched with scan-line shader) ────────────────────────
   const skullMat = useMemo(() => {
@@ -256,10 +253,9 @@ export function FaceGeometry() {
       skullGeo.dispose();
       chinGeo.dispose();
       ringGeo.dispose();
-      pupilGeo.dispose();
       skullMat.dispose();
     };
-  }, [skullGeo, chinGeo, ringGeo, pupilGeo, skullMat]);
+  }, [skullGeo, chinGeo, ringGeo, skullMat]);
 
   // ── Animation loop ────────────────────────────────────────────────────────
   useFrame((state, delta) => {
@@ -428,30 +424,15 @@ export function FaceGeometry() {
       }
     }
 
-    // blinkProgress 0→0.5: squash (scale Y 1→0), 0.5→1: reopen (scale Y 0→1)
+    // ── Ring blink: squash rings vertically when blinking ───────────────────
     const bP = blink.blinkProgress;
-    const pupilScaleY = blink.blinking 
-      ? (bP < 0.5 ? 1 - (bP / 0.5) : (bP - 0.5) / 0.5)
+    const ringScaleY = blink.blinking
+      ? (bP < 0.5 ? 1 - (bP / 0.5) * 0.85 : ((bP - 0.5) / 0.5) * 0.85 + 0.15)
       : 1.0;
 
-    // ── Pupil scale + colour ─────────────────────────────────────────────────
-    for (const pRef of [pupilLRef, pupilRRef]) {
-      if (pRef.current) {
-        const mat = pRef.current.material as THREE.MeshStandardMaterial;
-        pRef.current.scale.y = THREE.MathUtils.lerp(pRef.current.scale.y, pupilScaleY, delta * 20);
-        // Eye widens on scanning/locked
-        const eyeScale =
-          displayState === 'scanning' || displayState === 'locked' ? 1.2
-          : displayState === 'alert' ? 0.75
-          : 1.0;
-        pRef.current.scale.x = THREE.MathUtils.lerp(pRef.current.scale.x, eyeScale, delta * 4);
-
-        mat.emissive.lerp(new THREE.Color(colours.pupil), delta * 6);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(
-          mat.emissiveIntensity,
-          colours.pupilIntensity,
-          delta * 6,
-        );
+    for (const rRef of [ringLRef, ringRRef]) {
+      if (rRef.current) {
+        rRef.current.scale.y = THREE.MathUtils.lerp(rRef.current.scale.y, ringScaleY, delta * 20);
       }
     }
   });
@@ -503,35 +484,6 @@ export function FaceGeometry() {
         />
       </mesh>
 
-      {/* ── Left pupil disc ─────────────────────────────────────────────── */}
-      <mesh ref={pupilLRef} geometry={pupilGeo} position={[-EYE_X, EYE_Y, EYE_Z + 0.005]}>
-        <meshStandardMaterial
-          color="#020a10"
-          emissive="#22d3ee"
-          emissiveIntensity={0.5}
-          roughness={0.0}
-          metalness={0.0}
-          transparent
-          opacity={0.95}
-          depthWrite={false}
-          blending={THREE.NormalBlending}
-        />
-      </mesh>
-
-      {/* ── Right pupil disc ────────────────────────────────────────────── */}
-      <mesh ref={pupilRRef} geometry={pupilGeo} position={[EYE_X, EYE_Y, EYE_Z + 0.005]}>
-        <meshStandardMaterial
-          color="#020a10"
-          emissive="#22d3ee"
-          emissiveIntensity={0.5}
-          roughness={0.0}
-          metalness={0.0}
-          transparent
-          opacity={0.95}
-          depthWrite={false}
-          blending={THREE.NormalBlending}
-        />
-      </mesh>
     </group>
   );
 }
