@@ -606,9 +606,9 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
   const EYE_X = 0.23;
   const EYE_Z = 0.65;
 
-  // Circular pupil positions — pushed clearly OUTSIDE the skull surface
-  // Skull Z-surface at (EYE_X=0.23, PUPIL_Y=0.10) ≈ 0.684, so 0.74 is safely outside
-  const PUPIL_Y = 0.10;   // below the arc center
+  // Circular pupil positions — aligned perfectly with the arc center to look straight ahead
+  // Skull Z-surface at (EYE_X=0.23, PUPIL_Y=0.18) ≈ 0.67, so 0.74 is safely outside
+  const PUPIL_Y = 0.18;   // aligned perfectly with EYE_Y center
   const PUPIL_Z = 0.74;  // clearly in front of the skull surface
 
   // Arc length is 1.5π (270°). Gap original center = 315°.
