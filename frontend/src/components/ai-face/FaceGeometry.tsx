@@ -215,14 +215,19 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
   const ringRRef = useRef<THREE.Mesh>(null);
   const pupilLRef = useRef<THREE.Mesh>(null);
   const pupilRRef = useRef<THREE.Mesh>(null);
+  const scanRingRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
 
   // ── Blink system (ref-based, zero re-renders) ─────────────────────────────
   const blinkRef = useRef({
     lastBlinkTime: 0,
     blinking: false,
-    blinkProgress: 0, // 0 = open, 1 = closed
+    blinkProgress: 0,
   });
+
+  // ── "Pulse Ignition" intro sequence timer ────────────────────────────────
+  // Plays once on mount (idle mode only), then transitions to heartbeat idle.
+  const introRef = useRef({ started: false, startTime: -1 });
 
   // ── Scan-line material ref ────────────────────────────────────────────────
   const skullMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
@@ -247,8 +252,13 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
   );
 
   // Circular eyes/pupils — small spheres that protrude from the face surface
-  // Using SphereGeometry instead of CircleGeometry avoids z-clipping with the skull
   const pupilGeo = useMemo(() => new THREE.SphereGeometry(0.075, 16, 16), []);
+
+  // Thin scanning ring that sweeps around the orb during the intro scan phase
+  const scanRingGeo = useMemo(
+    () => new THREE.TorusGeometry(1.08, 0.006, 8, 128),
+    [],
+  );
 
   // ── Skull material (patched with scan-line shader) ────────────────────────
   // Comfortable sky blue — soft, not blinding, matches reference photo
@@ -272,93 +282,302 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
       chinGeo.dispose();
       ringGeo.dispose();
       pupilGeo.dispose();
+      scanRingGeo.dispose();
       skullMat.dispose();
     };
-  }, [skullGeo, chinGeo, ringGeo, pupilGeo, skullMat]);
+  }, [skullGeo, chinGeo, ringGeo, pupilGeo, scanRingGeo, skullMat]);
 
   // ── Animation loop ────────────────────────────────────────────────────────
   useFrame((state, delta) => {
     state.invalidate(); // required: canvas is in frameloop='demand' mode
     const t = state.clock.getElapsedTime();
 
-    // ── IDLE MODE (e.g. Landing Page / Splash screen orb) ────────────────────
-    // No camera input. Static face at rest, slow idle rotation, gentle
-    // breathing-scale pulse, and slight drift.
+    // ── IDLE MODE — "Pulse Ignition" intro + heartbeat idle ─────────────────
     if (mode === 'idle') {
-      const colours = getColourTarget('idle', t, 72);
+      // Initialise intro timer on first frame
+      if (!introRef.current.started) {
+        introRef.current.started = true;
+        introRef.current.startTime = t;
+      }
+      const it = t - introRef.current.startTime; // seconds since component mounted
 
-      // Update scan-line shader uniforms
+      // Always update scan-line shader time
       if (skullMatRef.current?.userData.shader) {
         skullMatRef.current.userData.shader.uniforms.uTime.value = t;
         skullMatRef.current.userData.shader.uniforms.uScanActive.value = 0.0;
       }
 
-      // Slow idle rotation: graceful sinusoidal yaw rotation (~18 degrees left/right)
-      // and subtle micro-nodding
-      const rotY = Math.sin(t * 0.45) * 0.32;
-      const rotX = Math.sin(t * 0.30) * 0.05;
-      const rotZ = Math.sin(t * 0.25) * 0.02;
+      // ── Intro phase boundaries (seconds) ──────────────────────────────────
+      const PH_PULSE  = 0.9;  // dormant ends, pulse fires
+      const PH_FOCUS  = 1.5;  // autofocus dart begins
+      const PH_SNAP   = 2.4;  // snap to centre + focus-pull
+      const PH_BLINK  = 2.75; // single blink
+      const PH_SCAN   = 3.1;  // scanning ring sweeps
+      const PH_IDLE   = 5.0;  // heartbeat idle begins
 
-      // Slight floating drift
-      const driftX = Math.sin(t * 0.6) * 0.06;
-      const driftY = Math.cos(t * 0.7) * 0.05;
-      const driftZ = Math.sin(t * 0.5) * 0.04;
+      // ── Helper: set emissive of a mesh ref ────────────────────────────────
+      const setEmi = (ref: React.RefObject<THREE.Mesh | null>, intensity: number, colour?: string) => {
+        if (!ref.current) return;
+        const m = ref.current.material as THREE.MeshStandardMaterial;
+        m.emissiveIntensity = intensity;
+        if (colour) m.emissive.set(colour);
+      };
 
-      // Gentle breathing-scale pulse (~14-15 breaths/minute)
-      const breathScale = 1.0 + Math.sin(t * 1.5) * 0.035;
+      // ── PHASE 0: Dormant ─────────────────────────────────────────────────
+      if (it < PH_PULSE) {
+        // Skull barely visible — deep navy, almost off
+        if (skullRef.current) {
+          const m = skullRef.current.material as THREE.MeshStandardMaterial;
+          m.color.set('#050e1a');
+          m.emissive.set('#020810');
+          m.emissiveIntensity = 0.06;
+        }
+        if (chinRef.current) {
+          const m = chinRef.current.material as THREE.MeshStandardMaterial;
+          m.emissiveIntensity = 0.04;
+        }
+        // Eyes completely dark
+        for (const r of [ringLRef, ringRRef, pupilLRef, pupilRRef]) {
+          if (r.current) {
+            const m = r.current.material as THREE.MeshStandardMaterial;
+            m.transparent = true;
+            m.opacity = 0;
+            m.emissiveIntensity = 0;
+          }
+        }
+        // Scan ring hidden
+        if (scanRingRef.current) {
+          const m = scanRingRef.current.material as THREE.MeshStandardMaterial;
+          m.transparent = true;
+          m.opacity = 0;
+        }
+        if (groupRef.current) {
+          groupRef.current.position.set(0, 0, 0);
+          groupRef.current.rotation.set(0, 0, 0);
+          groupRef.current.scale.set(1, 1, 1);
+        }
+        return;
+      }
+
+      // ── PHASE 1: Pulse Ignition (0.9 – 1.5s) ────────────────────────────
+      // A sharp heartbeat-style flash ignites the orb; eyes appear on that beat.
+      if (it < PH_FOCUS) {
+        const pt = it - PH_PULSE;         // 0 → 0.6
+        // Gaussian pulse spike peaking at ~40ms then settling
+        const spike = Math.exp(-((pt - 0.04) ** 2) / 0.008);
+        const eyeAlpha = Math.min(1, pt / 0.25); // eyes fade in over 0.25s
+
+        if (skullRef.current) {
+          const m = skullRef.current.material as THREE.MeshStandardMaterial;
+          m.color.set('#1e88e5');
+          m.emissive.set('#38bdf8');
+          m.emissiveIntensity = 0.55 + spike * 2.5;
+        }
+        if (chinRef.current) {
+          const m = chinRef.current.material as THREE.MeshStandardMaterial;
+          m.emissiveIntensity = 0.5 + spike * 1.5;
+        }
+        // Eyes ignite exactly on the pulse
+        for (const r of [ringLRef, ringRRef]) {
+          if (r.current) {
+            const m = r.current.material as THREE.MeshStandardMaterial;
+            m.transparent = true;
+            m.opacity = eyeAlpha;
+            m.emissiveIntensity = eyeAlpha * 2.0;
+          }
+        }
+        for (const r of [pupilLRef, pupilRRef]) {
+          if (r.current) {
+            const m = r.current.material as THREE.MeshStandardMaterial;
+            m.transparent = true;
+            m.opacity = eyeAlpha;
+            m.emissiveIntensity = eyeAlpha * 2.4;
+          }
+        }
+        if (scanRingRef.current) {
+          (scanRingRef.current.material as THREE.MeshStandardMaterial).opacity = 0;
+        }
+        if (groupRef.current) {
+          groupRef.current.position.set(0, 0, 0);
+          groupRef.current.rotation.set(0, 0, 0);
+          groupRef.current.scale.setScalar(1 + spike * 0.04); // tiny pop on beat
+        }
+        return;
+      }
+
+      // ── PHASE 2: Autofocus Dart (1.5 – 2.4s) ───────────────────────────
+      // Eyes hunt for lock: dart left → right → left → settle toward centre
+      if (it < PH_SNAP) {
+        const fn = (it - PH_FOCUS) / (PH_SNAP - PH_FOCUS); // 0 → 1
+        // Piecewise snappy yaw: each segment is a quick jump
+        let targetYaw: number;
+        if (fn < 0.22)      targetYaw = THREE.MathUtils.lerp(0,    -0.50, fn / 0.22);
+        else if (fn < 0.44) targetYaw = THREE.MathUtils.lerp(-0.50,  0.45, (fn - 0.22) / 0.22);
+        else if (fn < 0.66) targetYaw = THREE.MathUtils.lerp(0.45,  -0.28, (fn - 0.44) / 0.22);
+        else                targetYaw = THREE.MathUtils.lerp(-0.28,   0.05, (fn - 0.66) / 0.34);
+
+        if (groupRef.current) {
+          // Direct set for snappiness — no lerp smoothing here
+          groupRef.current.rotation.y = targetYaw;
+          groupRef.current.rotation.x = 0;
+          groupRef.current.rotation.z = 0;
+          groupRef.current.position.set(0, 0, 0);
+          groupRef.current.scale.setScalar(1);
+        }
+        // Eyes fully visible
+        for (const r of [ringLRef, ringRRef]) setEmi(r, 2.0);
+        for (const r of [pupilLRef, pupilRRef]) setEmi(r, 2.4);
+        for (const r of [ringLRef, ringRRef, pupilLRef, pupilRRef]) {
+          if (r.current) {
+            const m = r.current.material as THREE.MeshStandardMaterial;
+            m.transparent = false;
+            m.opacity = 1;
+          }
+        }
+        return;
+      }
+
+      // ── PHASE 3: Focus Snap + Focus-pull (2.4 – 2.75s) ─────────────────
+      // Snap to centre, pupils pulse slightly soft→sharp
+      if (it < PH_BLINK) {
+        const sn = (it - PH_SNAP) / (PH_BLINK - PH_SNAP); // 0 → 1
+        if (groupRef.current) {
+          groupRef.current.rotation.y = THREE.MathUtils.lerp(
+            groupRef.current.rotation.y, 0, delta * 18,
+          );
+        }
+        // Focus-pull: pupils bloom then snap sharp
+        const focusPulse = 1 + Math.sin(sn * Math.PI) * 0.2;
+        for (const r of [pupilLRef, pupilRRef]) {
+          if (r.current) r.current.scale.setScalar(focusPulse);
+        }
+        for (const r of [ringLRef, ringRRef]) setEmi(r, 2.0);
+        for (const r of [pupilLRef, pupilRRef]) setEmi(r, 2.4);
+        return;
+      }
+
+      // ── PHASE 4: Blink — confirmation it can see (2.75 – 3.1s) ─────────
+      if (it < PH_SCAN) {
+        const bn = (it - PH_BLINK) / (PH_SCAN - PH_BLINK); // 0 → 1
+        // Squash/open: 0→0 in first 40%, then spring open
+        const blinkY = bn < 0.40
+          ? 1 - bn / 0.40
+          : (bn - 0.40) / 0.60;
+        if (groupRef.current) {
+          groupRef.current.rotation.y = THREE.MathUtils.lerp(
+            groupRef.current.rotation.y, 0, delta * 12,
+          );
+          groupRef.current.scale.setScalar(1);
+        }
+        for (const r of [ringLRef, ringRRef]) {
+          if (r.current) r.current.scale.set(1, blinkY, 1);
+        }
+        for (const r of [pupilLRef, pupilRRef]) {
+          if (r.current) r.current.scale.set(1, blinkY, 1);
+        }
+        return;
+      }
+
+      // ── PHASE 5: Scanning Ring Sweep (3.1 – 5.0s) ───────────────────────
+      // Thin ring orbits once around the orb; face turns slightly then re-centres.
+      if (it < PH_IDLE) {
+        const sn = (it - PH_SCAN) / (PH_IDLE - PH_SCAN); // 0 → 1
+        // Restore eye scale
+        for (const r of [ringLRef, ringRRef, pupilLRef, pupilRRef]) {
+          if (r.current) r.current.scale.setScalar(1);
+        }
+        for (const r of [ringLRef, ringRRef]) setEmi(r, 2.0);
+        for (const r of [pupilLRef, pupilRRef]) setEmi(r, 2.4);
+
+        // Scan ring: fade in, sweep 360° (tilted 20° on X), fade out
+        if (scanRingRef.current) {
+          const ringFade = sn < 0.08 ? sn / 0.08
+                         : sn > 0.88 ? 1 - (sn - 0.88) / 0.12
+                         : 1;
+          const m = scanRingRef.current.material as THREE.MeshStandardMaterial;
+          m.transparent = true;
+          m.opacity = ringFade * 0.75;
+          // Full 360° sweep
+          scanRingRef.current.rotation.y = sn * Math.PI * 2;
+        }
+
+        // Face gently rotates ~60° and returns — like it's being scanned
+        const faceYaw = Math.sin(sn * Math.PI) * 0.5;
+        if (groupRef.current) {
+          groupRef.current.rotation.set(0, faceYaw, 0);
+          groupRef.current.position.set(0, 0, 0);
+          groupRef.current.scale.setScalar(1);
+        }
+        if (skullRef.current) {
+          const m = skullRef.current.material as THREE.MeshStandardMaterial;
+          m.color.set('#1e88e5');
+          m.emissive.set('#0284c7');
+          m.emissiveIntensity = 0.65;
+        }
+        return;
+      }
+
+      // ── PHASE 6: Heartbeat Idle (5.0s+) ────────────────────────────────
+      // Breathing is timed to 72bpm (~1.2 Hz) heartbeat rhythm, not generic float.
+      // Double-beat feel: strong pulse + softer echo.
+      const BPM = 72;
+      const hz  = (BPM / 60) * (2 * Math.PI);
+      const hbT = (it - PH_IDLE) * hz;
+      // Composite waveform: main beat + softer diastolic echo
+      const hb = Math.max(
+        0,
+        Math.sin(hbT) * 0.65 + Math.sin(hbT * 2) * 0.25,
+      );
+
+      // Heartbeat scale pulse + slow orbital float
+      const breathScale = 1.0 + hb * 0.032;
+      const driftX = Math.sin(t * 0.28) * 0.05;
+      const driftY = Math.cos(t * 0.33) * 0.04 + hb * 0.008;
 
       if (groupRef.current) {
-        groupRef.current.position.set(driftX, driftY, driftZ);
-        groupRef.current.rotation.set(rotX, rotY, rotZ);
-        groupRef.current.scale.set(breathScale, breathScale, breathScale);
+        groupRef.current.position.set(driftX, driftY, 0);
+        // Slow idle yaw — narrower range than before, more meditative
+        groupRef.current.rotation.y = THREE.MathUtils.lerp(
+          groupRef.current.rotation.y,
+          Math.sin(t * 0.18) * 0.18,
+          delta * 1.5,
+        );
+        groupRef.current.rotation.x = THREE.MathUtils.lerp(
+          groupRef.current.rotation.x, 0, delta * 2,
+        );
+        groupRef.current.scale.setScalar(breathScale);
       }
 
-      // Skull & chin material colors
+      // Skull pulses with heartbeat
       if (skullRef.current) {
-        const mat = skullRef.current.material as THREE.MeshStandardMaterial;
-        mat.color.lerp(new THREE.Color(colours.skull), delta * 2);
-        mat.emissive.lerp(new THREE.Color(colours.emissive), delta * 2);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(
-          mat.emissiveIntensity,
-          colours.emissiveIntensity,
-          delta * 3,
-        );
+        const m = skullRef.current.material as THREE.MeshStandardMaterial;
+        m.color.set('#1e88e5');
+        m.emissive.set('#0284c7');
+        m.emissiveIntensity = 0.55 + hb * 0.18;
       }
       if (chinRef.current) {
-        const mat = chinRef.current.material as THREE.MeshStandardMaterial;
-        mat.color.lerp(new THREE.Color(colours.skull), delta * 2);
-        mat.emissive.lerp(new THREE.Color(colours.emissive), delta * 2);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(
-          mat.emissiveIntensity,
-          colours.emissiveIntensity * 0.7,
-          delta * 3,
-        );
+        const m = chinRef.current.material as THREE.MeshStandardMaterial;
+        m.emissiveIntensity = 0.50 + hb * 0.12;
       }
 
-      // Eye rings & circular pupils: static at rest with gentle resting glow
-      for (const ringRef of [ringLRef, ringRRef]) {
-        if (ringRef.current) {
-          ringRef.current.scale.y = 1.0;
-          const mat = ringRef.current.material as THREE.MeshStandardMaterial;
-          mat.emissive.lerp(new THREE.Color(colours.ring), delta * 4);
-          mat.emissiveIntensity = THREE.MathUtils.lerp(
-            mat.emissiveIntensity,
-            colours.ringIntensity,
-            delta * 4,
-          );
+      // Eyes hold steady glow — pupils subtly pulse with beat
+      for (const r of [ringLRef, ringRRef]) {
+        if (r.current) {
+          r.current.scale.setScalar(1);
+          setEmi(r, 1.8 + hb * 0.2);
         }
       }
-      for (const pRef of [pupilLRef, pupilRRef]) {
-        if (pRef.current) {
-          pRef.current.scale.y = 1.0;
-          const mat = pRef.current.material as THREE.MeshStandardMaterial;
-          mat.emissive.lerp(new THREE.Color(colours.pupil), delta * 4);
-          mat.emissiveIntensity = THREE.MathUtils.lerp(
-            mat.emissiveIntensity,
-            colours.pupilIntensity,
-            delta * 4,
-          );
+      for (const r of [pupilLRef, pupilRRef]) {
+        if (r.current) {
+          r.current.scale.setScalar(1);
+          setEmi(r, 2.2 + hb * 0.3);
         }
+      }
+
+      // Fade scan ring out completely
+      if (scanRingRef.current) {
+        const m = scanRingRef.current.material as THREE.MeshStandardMaterial;
+        m.opacity = THREE.MathUtils.lerp(m.opacity, 0, delta * 3);
       }
 
       return;
@@ -660,6 +879,24 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
           emissiveIntensity={2.2}
           roughness={0.05}
           metalness={0.0}
+        />
+      </mesh>
+
+      {/* ── Intro scan ring — thin torus that sweeps once around the orb ── */}
+      {/* Only visible during Phase 5 of the intro; animated via scanRingRef.  */}
+      <mesh
+        ref={scanRingRef}
+        geometry={scanRingGeo}
+        rotation={[Math.PI * 0.11, 0, 0]}
+      >
+        <meshStandardMaterial
+          color="#38bdf8"
+          emissive="#7dd3fc"
+          emissiveIntensity={1.5}
+          roughness={0.1}
+          metalness={0.0}
+          transparent
+          opacity={0}
         />
       </mesh>
 
