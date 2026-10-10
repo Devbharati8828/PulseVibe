@@ -131,11 +131,11 @@ function getColourTarget(state: DisplayState, t: number, bpm: number): ColourTar
         skull: '#1a7ab5',
         emissive: '#0369a1',
         emissiveIntensity: 0.75 + Math.sin(t * 0.6) * 0.08,
-        // Light-blue crescent eyes (not white)
-        ring: '#7dd3fc',
-        ringIntensity: 1.4 + Math.sin(t * 0.8) * 0.15,
-        pupil: '#bae6fd',
-        pupilIntensity: 1.4,
+        // Crisp white glowing crescent eyes — matches reference photo
+        ring: '#ffffff',
+        ringIntensity: 1.8 + Math.sin(t * 0.8) * 0.15,
+        pupil: '#ffffff',
+        pupilIntensity: 1.8,
       };
     case 'scanning':
       return {
@@ -237,22 +237,22 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
   }, []);
 
   const chinGeo = useMemo(() => new THREE.CylinderGeometry(0.35, 0.2, 0.55, 32), []);
-  // Partial-arc eye rings (gap at bottom → crescent / "C" shape like the reference)
-  // Math.PI * 1.55  ≈  279° arc  →  ~81° gap at the bottom of each ring
+  // Sized to fit comfortably inside the skull silhouette with clean proportions:
+  // radius 0.20, tube 0.018, 270° arc (gap at bottom)
   const ringGeo = useMemo(
-    () => new THREE.TorusGeometry(0.26, 0.025, 16, 80, Math.PI * 1.55),
+    () => new THREE.TorusGeometry(0.20, 0.018, 16, 80, Math.PI * 1.5),
     [],
   );
 
   // ── Skull material (patched with scan-line shader) ────────────────────────
-  // Start as comfortable medium-blue from the very first frame
+  // Comfortable sky blue — soft, not blinding, matches reference photo
   const skullMat = useMemo(() => {
     const m = new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#1a7ab5'),
-      emissive: new THREE.Color('#0369a1'),
-      emissiveIntensity: 0.75,
-      roughness: 0.5,
-      metalness: 0.15,
+      color: new THREE.Color('#1e88e5'),
+      emissive: new THREE.Color('#0284c7'),
+      emissiveIntensity: 0.55,
+      roughness: 0.4,
+      metalness: 0.1,
     });
     patchMaterial(m);
     skullMatRef.current = m;
@@ -530,43 +530,44 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
     }
   });
 
-  // Eye positions — slightly higher and wider to sit naturally on the face
-  const EYE_Y = 0.22;
-  const EYE_X = 0.30;
-  const EYE_Z = 0.70;
+  // Eye positions — proportionate placement within the skull contour
+  const EYE_Y = 0.18;
+  const EYE_X = 0.23;
+  const EYE_Z = 0.65;
 
-  // Rotation that centres the arc gap at the BOTTOM of each eye ring.
-  // TorusGeometry arc starts at +X and sweeps CCW.  With a 279° arc the
-  // gap spans 81° centred at 319.5°.  Adding +45° (π/4) shifts it to 270° = bottom.
-  const EYE_ROT_Z = Math.PI * 0.25;
+  // Arc length is 1.5π (270°). Gap original center = 315°.
+  // Rotating by -45° (-Math.PI * 0.25) places:
+  // - Arch peak at exactly 90° (top)
+  // - Gap at exactly 270° (bottom)
+  const EYE_ROT_Z = -Math.PI * 0.25;
 
   return (
     <group ref={groupRef}>
-      {/* ── Skull ────────────────────────────────────────────────────────── */}
+      {/* ── Skull ──────────────────────────────────────────────────────────── */}
       <mesh ref={skullRef} geometry={skullGeo} material={skullMat} />
 
-      {/* ── Chin taper — same comfortable blue as skull ──────────────────── */}
+      {/* ── Chin taper — same comfortable sky-blue as skull ─────────────── */}
       <mesh ref={chinRef} geometry={chinGeo} position={[0, -0.88, 0]}>
         <meshStandardMaterial
-          color="#1a7ab5"
-          emissive="#0369a1"
-          emissiveIntensity={0.65}
-          roughness={0.5}
-          metalness={0.15}
+          color="#1e88e5"
+          emissive="#0284c7"
+          emissiveIntensity={0.55}
+          roughness={0.4}
+          metalness={0.1}
         />
       </mesh>
 
-      {/* ── Left eye — partial-arc crescent (gap at bottom) ─────────────── */}
+      {/* ── Left eye — partial-arc crescent, arched at top, open at bottom ─ */}
       <mesh
         ref={ringLRef}
         geometry={ringGeo}
         position={[-EYE_X, EYE_Y, EYE_Z]}
-        rotation={[0, 0, EYE_ROT_Z]}
+        rotation={[0, -0.22, EYE_ROT_Z]}
       >
         <meshStandardMaterial
-          color="#bae6fd"
-          emissive="#7dd3fc"
-          emissiveIntensity={1.4}
+          color="#f0f9ff"
+          emissive="#ffffff"
+          emissiveIntensity={1.8}
           roughness={0.08}
           metalness={0.0}
           transparent
@@ -574,17 +575,17 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
         />
       </mesh>
 
-      {/* ── Right eye — partial-arc crescent (gap at bottom, mirrored) ──── */}
+      {/* ── Right eye — symmetric arch, slightly angled outward to contour face ─ */}
       <mesh
         ref={ringRRef}
         geometry={ringGeo}
         position={[EYE_X, EYE_Y, EYE_Z]}
-        rotation={[0, 0, -EYE_ROT_Z]}
+        rotation={[0, 0.22, EYE_ROT_Z]}
       >
         <meshStandardMaterial
-          color="#bae6fd"
-          emissive="#7dd3fc"
-          emissiveIntensity={1.4}
+          color="#f0f9ff"
+          emissive="#ffffff"
+          emissiveIntensity={1.8}
           roughness={0.08}
           metalness={0.0}
           transparent
@@ -595,3 +596,4 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
     </group>
   );
 }
+
