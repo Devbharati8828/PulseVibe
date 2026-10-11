@@ -9,9 +9,9 @@ import SignalLabPage from './pages/SignalLabPage';
 
 function AppShell() {
   return (
-    <div className="min-h-screen bg-surface-950 text-white relative flex flex-col overflow-hidden">
+    <div className="h-screen h-[100dvh] w-full bg-surface-950 text-white relative flex flex-col overflow-hidden">
       <HUDFrame />
-      <main className="flex-1 relative z-10 pt-16 pb-10">
+      <main className="flex-1 relative z-10 pt-16 pb-10 min-h-0 flex flex-col overflow-y-auto overflow-x-hidden">
         <Outlet />
       </main>
       <MedicalDisclaimer />
