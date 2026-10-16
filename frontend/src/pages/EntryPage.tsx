@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { AIFace } from '../components/ai-face/AIFace';
-import { ParticleField } from '../components/visualization/ParticleField';
 import { useEngineStore } from '../stores/useEngineStore';
 import { useEffect } from 'react';
 
@@ -14,9 +13,7 @@ export default function EntryPage() {
   }, [reset]);
 
   return (
-    <>
-      <ParticleField />
-      <div className="relative z-10 flex flex-col items-center justify-center h-[calc(100dvh-6.5rem)] max-h-[calc(100dvh-6.5rem)] text-center px-4 overflow-hidden">
+    <div className="relative z-10 flex flex-col items-center justify-center h-[calc(100dvh-6.5rem)] max-h-[calc(100dvh-6.5rem)] text-center px-4 overflow-hidden">
       
       {/* Orb — tightened scale: fits compact laptops through large displays */}
       <div className="w-40 h-40 sm:w-48 sm:h-48 md:w-52 md:h-52 lg:w-56 lg:h-56 mb-2 sm:mb-3 md:mb-4 shrink-0">
@@ -44,6 +41,5 @@ export default function EntryPage() {
       </div>
       
     </div>
-    </>
   );
 }

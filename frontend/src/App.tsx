@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
 import { HUDFrame } from './components/layout/HUDFrame';
 import { MedicalDisclaimer } from './components/layout/MedicalDisclaimer';
+import { ParticleField } from './components/visualization/ParticleField';
 
 import EntryPage from './pages/EntryPage';
 import MeasurementPage from './pages/MeasurementPage';
@@ -10,6 +11,7 @@ import SignalLabPage from './pages/SignalLabPage';
 function AppShell() {
   return (
     <div className="min-h-screen bg-surface-950 text-white relative flex flex-col overflow-hidden">
+      <ParticleField />
       <HUDFrame />
       <main className="flex-1 relative z-10 pt-16 pb-10">
         <Outlet />
