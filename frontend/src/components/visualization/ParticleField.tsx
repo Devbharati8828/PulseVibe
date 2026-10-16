@@ -1,31 +1,29 @@
 import { useEffect, useRef } from 'react';
 
-interface Particle {
+interface Node {
   x: number;
   y: number;
+  vx: number;
+  vy: number;
   baseRadius: number;
-  speedY: number;
-  driftSpeed: number;
-  driftPhase: number;
-  driftAmp: number;
   colorRgb: string;
   baseAlpha: number;
+  pulseSpeed: number;
+  pulsePhase: number;
   layer: number;
   parallaxFactor: number;
-  twinkle: boolean;
-  twinkleSpeed: number;
-  twinklePhase: number;
 }
 
-const PARTICLE_COUNT = 100;
+const NODE_COUNT = 85;
+const MAX_CONNECT_DIST = 120;
+const MAX_CONNECT_DIST_SQ = MAX_CONNECT_DIST * MAX_CONNECT_DIST;
 
-// Curated palette of faint cyan, light sky blue, and blue-white tints
+// Faint cyan, soft electric blue, and crisp blue-white tints for neural junctions
 const COLOR_PALETTE = [
-  '34, 211, 238',  // vibrant cyan glow
-  '186, 230, 253', // soft sky blue
+  '34, 211, 238',  // cyber cyan
+  '56, 189, 248',  // sky electric blue
+  '125, 211, 252', // soft celestial blue
   '224, 242, 254', // icy blue-white
-  '240, 249, 255', // crisp blue-white
-  '147, 197, 253', // gentle periwinkle-blue
 ];
 
 export function ParticleField() {
@@ -44,74 +42,73 @@ export function ParticleField() {
     let height = 0;
     let dpr = 1;
 
-    // Parallax tracking
+    // Mouse parallax tracking
     let targetMouseX = 0;
     let targetMouseY = 0;
     let currentMouseX = 0;
     let currentMouseY = 0;
 
+    // Mouse proximity tracking (in screen coordinates)
+    let mouseScreenX = -9999;
+    let mouseScreenY = -9999;
+    let mouseActive = false;
+    let mouseTimeout: any = null;
+
     // Check prefers-reduced-motion
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     let prefersReducedMotion = motionQuery.matches;
 
-    // Helper to generate a particle in one of 3 depth layers
-    const createParticle = (w: number, h: number, initialYRandom = true): Particle => {
-      // Depth layer distribution:
-      // ~50% Far (layer 0): small, dim, slow
-      // ~35% Mid (layer 1): medium
-      // ~15% Near (layer 2): larger, brighter, faster
+    // Helper to generate a neural node
+    const createNode = (w: number, h: number): Node => {
       const rand = Math.random();
       let layer = 0;
-      let baseRadius = 0.8;
-      let baseAlpha = 0.18;
-      let speedY = 0.22;
+      let baseRadius = 1.0;
+      let baseAlpha = 0.22;
+      let vy = -(0.12 + Math.random() * 0.16); // slow upward drift
+      let vx = (Math.random() - 0.5) * 0.12;   // subtle horizontal drift
       let parallaxFactor = 0.015;
 
-      if (rand > 0.85) {
-        // Layer 2 - Near
+      if (rand > 0.70) {
+        // Foreground junction — slightly brighter, pulses visibly
         layer = 2;
-        baseRadius = 1.9 + Math.random() * 0.8; // 1.9 - 2.7px
-        baseAlpha = 0.35 + Math.random() * 0.18; // 0.35 - 0.53 (faint, not distracting)
-        speedY = 0.65 + Math.random() * 0.35;    // 0.65 - 1.00 px/frame
-        parallaxFactor = 0.07;
-      } else if (rand > 0.50) {
-        // Layer 1 - Mid
+        baseRadius = 1.8 + Math.random() * 0.6;
+        baseAlpha = 0.40 + Math.random() * 0.15;
+        vy = -(0.25 + Math.random() * 0.25);
+        parallaxFactor = 0.045;
+      } else if (rand > 0.35) {
+        // Midground junction
         layer = 1;
-        baseRadius = 1.2 + Math.random() * 0.5; // 1.2 - 1.7px
-        baseAlpha = 0.22 + Math.random() * 0.14; // 0.22 - 0.36
-        speedY = 0.35 + Math.random() * 0.22;    // 0.35 - 0.57 px/frame
-        parallaxFactor = 0.035;
+        baseRadius = 1.2 + Math.random() * 0.4;
+        baseAlpha = 0.25 + Math.random() * 0.12;
+        vy = -(0.18 + Math.random() * 0.18);
+        parallaxFactor = 0.025;
       } else {
-        // Layer 0 - Far
+        // Deep background junction — faint, slow
         layer = 0;
-        baseRadius = 0.6 + Math.random() * 0.4; // 0.6 - 1.0px
-        baseAlpha = 0.12 + Math.random() * 0.10; // 0.12 - 0.22
-        speedY = 0.15 + Math.random() * 0.15;    // 0.15 - 0.30 px/frame
+        baseRadius = 0.8 + Math.random() * 0.3;
+        baseAlpha = 0.14 + Math.random() * 0.08;
+        vy = -(0.10 + Math.random() * 0.12);
         parallaxFactor = 0.012;
       }
 
       const colorRgb = COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)];
-      const twinkle = Math.random() < 0.28; // ~28% gentle twinkle
 
       return {
         x: Math.random() * w,
-        y: initialYRandom ? Math.random() * h : h + 10,
+        y: Math.random() * h,
+        vx,
+        vy,
         baseRadius,
-        speedY,
-        driftSpeed: 0.0008 + Math.random() * 0.0012,
-        driftPhase: Math.random() * Math.PI * 2,
-        driftAmp: 0.2 + Math.random() * 0.35,
         colorRgb,
         baseAlpha,
+        pulseSpeed: 0.0015 + Math.random() * 0.002,
+        pulsePhase: Math.random() * Math.PI * 2,
         layer,
         parallaxFactor,
-        twinkle,
-        twinkleSpeed: 0.002 + Math.random() * 0.0025,
-        twinklePhase: Math.random() * Math.PI * 2,
       };
     };
 
-    let particles: Particle[] = [];
+    let nodes: Node[] = [];
 
     const resize = () => {
       width = window.innerWidth;
@@ -126,13 +123,13 @@ export function ParticleField() {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
 
-      // Re-initialize particles if empty, or wrap existing ones inside viewport
-      if (particles.length === 0) {
-        particles = Array.from({ length: PARTICLE_COUNT }, () => createParticle(width, height, true));
+      // Re-initialize or clamp nodes
+      if (nodes.length === 0) {
+        nodes = Array.from({ length: NODE_COUNT }, () => createNode(width, height));
       } else {
-        particles.forEach((p) => {
-          if (p.x > width) p.x = Math.random() * width;
-          if (p.y > height) p.y = Math.random() * height;
+        nodes.forEach((n) => {
+          if (n.x > width) n.x = Math.random() * width;
+          if (n.y > height) n.y = Math.random() * height;
         });
       }
     };
@@ -147,51 +144,121 @@ export function ParticleField() {
       currentMouseX += (targetMouseX - currentMouseX) * 0.04;
       currentMouseY += (targetMouseY - currentMouseY) * 0.04;
 
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i];
+      // Temporary arrays to hold calculated render positions
+      const renderedPositions: { x: number; y: number; alpha: number; pulse: number; node: Node }[] = [];
+
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
 
         if (!prefersReducedMotion) {
-          // Drift upward
-          p.y -= p.speedY;
+          // Continuous slow drift
+          n.x += n.vx;
+          n.y += n.vy;
 
-          // Subtle horizontal sine wobble
-          p.x += Math.sin(time * p.driftSpeed + p.driftPhase) * p.driftAmp;
-
-          // Wrap around top boundary
-          if (p.y < -15) {
-            p.y = height + 15;
-            p.x = Math.random() * width;
+          // Wrap top boundary
+          if (n.y < -15) {
+            n.y = height + 15;
+            n.x = Math.random() * width;
           }
           // Wrap horizontal boundaries
-          if (p.x < -20) p.x = width + 20;
-          else if (p.x > width + 20) p.x = -20;
+          if (n.x < -20) n.x = width + 20;
+          else if (n.x > width + 20) n.x = -20;
         }
 
         // Apply depth-dependent parallax offset
-        const parallaxX = currentMouseX * p.parallaxFactor * 45;
-        const parallaxY = currentMouseY * p.parallaxFactor * 30;
+        const renderX = n.x + currentMouseX * n.parallaxFactor * 40;
+        const renderY = n.y + currentMouseY * n.parallaxFactor * 25;
 
-        const renderX = p.x + parallaxX;
-        const renderY = p.y + parallaxY;
+        // Gentle pulse calculation
+        const pulse = prefersReducedMotion
+          ? 1.0
+          : 0.75 + 0.25 * Math.sin(time * n.pulseSpeed + n.pulsePhase);
 
-        // Twinkle calculation
-        let alpha = p.baseAlpha;
-        if (p.twinkle && !prefersReducedMotion) {
-          const twinkleFactor = 0.65 + 0.35 * Math.sin(time * p.twinkleSpeed + p.twinklePhase);
-          alpha = p.baseAlpha * twinkleFactor;
+        const currentAlpha = n.baseAlpha * pulse;
+
+        renderedPositions.push({
+          x: renderX,
+          y: renderY,
+          alpha: currentAlpha,
+          pulse,
+          node: n,
+        });
+      }
+
+      // ── 1. Draw connecting circuit/neural mesh lines between nearby nodes ────
+      ctx.lineWidth = 0.75;
+      const count = renderedPositions.length;
+
+      for (let i = 0; i < count; i++) {
+        const p1 = renderedPositions[i];
+
+        for (let j = i + 1; j < count; j++) {
+          const p2 = renderedPositions[j];
+
+          const dx = p2.x - p1.x;
+          // Quick bounding box check before calculating square distance
+          if (Math.abs(dx) > MAX_CONNECT_DIST) continue;
+
+          const dy = p2.y - p1.y;
+          if (Math.abs(dy) > MAX_CONNECT_DIST) continue;
+
+          const distSq = dx * dx + dy * dy;
+          if (distSq < MAX_CONNECT_DIST_SQ) {
+            const dist = Math.sqrt(distSq);
+            // Proximity ratio (1.0 = right next to each other, 0.0 = at threshold)
+            const proximity = 1 - dist / MAX_CONNECT_DIST;
+
+            // Faint opacity so the mesh never competes with the central AI face orb
+            const lineAlpha = proximity * 0.11 * ((p1.alpha + p2.alpha) / 2);
+
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = `rgba(34, 211, 238, ${lineAlpha.toFixed(4)})`;
+            ctx.stroke();
+          }
         }
 
-        // Draw particle
+        // Optional subtle interactive line to mouse cursor if within range
+        if (mouseActive) {
+          const mdx = mouseScreenX - p1.x;
+          const mdy = mouseScreenY - p1.y;
+          if (Math.abs(mdx) < 130 && Math.abs(mdy) < 130) {
+            const mDistSq = mdx * mdx + mdy * mdy;
+            if (mDistSq < 130 * 130) {
+              const mDist = Math.sqrt(mDistSq);
+              const mProximity = 1 - mDist / 130;
+              const mLineAlpha = mProximity * 0.14;
+
+              ctx.beginPath();
+              ctx.moveTo(p1.x, p1.y);
+              ctx.lineTo(mouseScreenX, mouseScreenY);
+              ctx.strokeStyle = `rgba(56, 189, 248, ${mLineAlpha.toFixed(4)})`;
+              ctx.stroke();
+            }
+          }
+        }
+      }
+
+      // ── 2. Draw neural junction nodes and pulsing glow cores ─────────────────
+      for (let i = 0; i < count; i++) {
+        const p = renderedPositions[i];
+        const n = p.node;
+
+        // Central junction point
         ctx.beginPath();
-        ctx.arc(renderX, renderY, p.baseRadius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${p.colorRgb}, ${alpha.toFixed(3)})`;
+        ctx.arc(p.x, p.y, n.baseRadius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${n.colorRgb}, ${p.alpha.toFixed(3)})`;
         ctx.fill();
 
-        // Extra faint outer glow for Near layer particles
-        if (p.layer === 2) {
+        // Pulsing halo at connection nexus (layers 1 & 2)
+        if (n.layer > 0) {
+          const haloRadius = n.baseRadius * (1.8 + p.pulse * 0.8);
+          const haloAlpha = p.alpha * 0.18;
+
           ctx.beginPath();
-          ctx.arc(renderX, renderY, p.baseRadius * 2.2, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(${p.colorRgb}, ${(alpha * 0.2).toFixed(3)})`;
+          ctx.arc(p.x, p.y, haloRadius, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${n.colorRgb}, ${haloAlpha.toFixed(3)})`;
           ctx.fill();
         }
       }
@@ -215,11 +282,24 @@ export function ParticleField() {
       animationFrameId = requestAnimationFrame(loop);
     }
 
-    // Parallax mousemove listener
+    // Mousemove listener for parallax & proximity
     const onMouseMove = (e: MouseEvent) => {
-      // Normalize to [-1, 1] relative to viewport center
       targetMouseX = (e.clientX / width - 0.5) * 2;
       targetMouseY = (e.clientY / height - 0.5) * 2;
+      mouseScreenX = e.clientX;
+      mouseScreenY = e.clientY;
+      mouseActive = true;
+
+      clearTimeout(mouseTimeout);
+      mouseTimeout = setTimeout(() => {
+        mouseActive = false;
+      }, 2500);
+    };
+
+    const onMouseLeave = () => {
+      mouseActive = false;
+      targetMouseX = 0;
+      targetMouseY = 0;
     };
 
     // Visibility change handler (pause when tab is hidden)
@@ -254,6 +334,7 @@ export function ParticleField() {
 
     window.addEventListener('resize', resize, { passive: true });
     window.addEventListener('mousemove', onMouseMove, { passive: true });
+    document.addEventListener('mouseleave', onMouseLeave);
     document.addEventListener('visibilitychange', onVisibilityChange);
     motionQuery.addEventListener('change', onMotionChange);
 
@@ -261,8 +342,10 @@ export function ParticleField() {
       if (animationFrameId !== null) {
         cancelAnimationFrame(animationFrameId);
       }
+      clearTimeout(mouseTimeout);
       window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseleave', onMouseLeave);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       motionQuery.removeEventListener('change', onMotionChange);
     };
