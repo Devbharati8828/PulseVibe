@@ -215,6 +215,7 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
   const ringRRef = useRef<THREE.Mesh>(null);
   const pupilLRef = useRef<THREE.Mesh>(null);
   const pupilRRef = useRef<THREE.Mesh>(null);
+  const mouthRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
 
   // ── Blink system (ref-based, zero re-renders) ─────────────────────────────
@@ -254,6 +255,12 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
   // Using SphereGeometry instead of CircleGeometry avoids z-clipping with the skull
   const pupilGeo = useMemo(() => new THREE.SphereGeometry(0.075, 16, 16), []);
 
+  // Sleek glowing mouth arc — gentle, friendly cybernetic smile
+  const mouthGeo = useMemo(
+    () => new THREE.TorusGeometry(0.14, 0.016, 16, 48, Math.PI * 0.65),
+    [],
+  );
+
   // ── Skull material (patched with scan-line shader) ────────────────────────
   // Comfortable sky blue — soft, not blinding, matches reference photo
   const skullMat = useMemo(() => {
@@ -276,9 +283,10 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
       chinGeo.dispose();
       ringGeo.dispose();
       pupilGeo.dispose();
+      mouthGeo.dispose();
       skullMat.dispose();
     };
-  }, [skullGeo, chinGeo, ringGeo, pupilGeo, skullMat]);
+  }, [skullGeo, chinGeo, ringGeo, pupilGeo, mouthGeo, skullMat]);
 
   // ── Animation loop ────────────────────────────────────────────────────────
   useFrame((state, delta) => {
@@ -395,6 +403,14 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
           mat.emissive.lerp(new THREE.Color(colours.pupil), delta * 4);
           mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, colours.pupilIntensity, delta * 4);
         }
+      }
+
+      // Mouth arc: gentle glow in idle mode
+      if (mouthRef.current) {
+        mouthRef.current.scale.y = 1.0;
+        const mat = mouthRef.current.material as THREE.MeshStandardMaterial;
+        mat.emissive.lerp(new THREE.Color(colours.ring), delta * 4);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, colours.ringIntensity, delta * 4);
       }
 
       return;
@@ -599,6 +615,20 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
         pRef.current.scale.y = THREE.MathUtils.lerp(pRef.current.scale.y, pupilScaleY, delta * 20);
       }
     }
+
+    // ── Live mouth animation (reacts to user speaking/opening jaw) ───────────
+    const jawOpen = blendshapes?.find(b => {
+      const n = b.categoryName.toLowerCase();
+      return n === 'jawopen' || n.includes('jaw_open') || n.includes('jawopen');
+    })?.score ?? 0;
+
+    if (mouthRef.current) {
+      const targetMouthScaleY = 1.0 + Math.min(jawOpen * 2.2, 2.0);
+      mouthRef.current.scale.y = THREE.MathUtils.lerp(mouthRef.current.scale.y, targetMouthScaleY, delta * 15);
+      const mat = mouthRef.current.material as THREE.MeshStandardMaterial;
+      mat.emissive.lerp(new THREE.Color(colours.ring), delta * 4);
+      mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, colours.ringIntensity, delta * 4);
+    }
   });
 
   // Eye positions — proportionate placement within the skull contour
@@ -616,6 +646,12 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
   // - Arch peak at exactly 90° (top)
   // - Gap at exactly 270° (bottom)
   const EYE_ROT_Z = -Math.PI * 0.25;
+
+  // Mouth position and orientation — centered below the eyes with subtle upward smile curve
+  const MOUTH_Y = -0.28;
+  const MOUTH_Z = 0.71;
+  const MOUTH_ROT_Z = -Math.PI * 0.825; // curves upward at the ends (friendly smile)
+  const MOUTH_ROT_X = 0.16;             // tilts slightly to hug facial contour
 
   return (
     <group ref={groupRef}>
@@ -696,6 +732,24 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
           emissiveIntensity={2.2}
           roughness={0.05}
           metalness={0.0}
+        />
+      </mesh>
+
+      {/* ── Mouth arc — sleek cybernetic smile line ────────────────────── */}
+      <mesh
+        ref={mouthRef}
+        geometry={mouthGeo}
+        position={[0, MOUTH_Y, MOUTH_Z]}
+        rotation={[MOUTH_ROT_X, 0, MOUTH_ROT_Z]}
+      >
+        <meshStandardMaterial
+          color="#f0f9ff"
+          emissive="#ffffff"
+          emissiveIntensity={1.8}
+          roughness={0.08}
+          metalness={0.0}
+          transparent
+          opacity={1.0}
         />
       </mesh>
 
