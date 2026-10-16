@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { AIFace } from '../components/ai-face/AIFace';
-import { NeuralMesh } from '../components/visualization/NeuralMesh';
+import { ParticleField } from '../components/visualization/ParticleField';
 import { useEngineStore } from '../stores/useEngineStore';
 import { useEffect } from 'react';
 
@@ -15,7 +15,7 @@ export default function EntryPage() {
 
   return (
     <>
-      <NeuralMesh />
+      <ParticleField />
       <div className="relative z-10 flex flex-col items-center justify-center h-[calc(100dvh-6.5rem)] max-h-[calc(100dvh-6.5rem)] text-center px-4 overflow-hidden">
       
       {/* Orb — tightened scale: fits compact laptops through large displays */}
