@@ -141,54 +141,53 @@ function getColourTarget(state: DisplayState, t: number, bpm: number): ColourTar
       return {
         skull: '#1e90d0',
         emissive: '#0284c7',
-        emissiveIntensity: 0.9 + Math.sin(t * 7) * 0.2,
-        ring: '#bae6fd',
-        ringIntensity: 1.8 + Math.sin(t * 9) * 0.3,
-        pupil: '#e0f2fe',
-        pupilIntensity: 1.8 + Math.sin(t * 9) * 0.3,
+        emissiveIntensity: 0.85,
+        ring: '#ffffff',
+        ringIntensity: 1.8,
+        pupil: '#ffffff',
+        pupilIntensity: 1.8,
       };
     case 'locked':
     case 'acquiring':
       return {
         skull: '#2ca9e0',
         emissive: '#0284c7',
-        emissiveIntensity: 1.1,
-        ring: '#e0f2fe',
-        ringIntensity: 2.0,
-        pupil: '#f0f9ff',
-        pupilIntensity: 2.0,
+        emissiveIntensity: 0.95,
+        ring: '#ffffff',
+        ringIntensity: 1.8,
+        pupil: '#ffffff',
+        pupilIntensity: 1.8,
       };
     case 'processing':
       return {
         skull: '#1a7ab5',
         emissive: '#0369a1',
-        emissiveIntensity: 0.9,
-        ring: '#bae6fd',
-        ringIntensity: 1.7,
-        pupil: '#e0f2fe',
-        pupilIntensity: 1.5 + Math.sin(t * 12) * 0.4,
+        emissiveIntensity: 0.85,
+        ring: '#ffffff',
+        ringIntensity: 1.8,
+        pupil: '#ffffff',
+        pupilIntensity: 1.8,
       };
     case 'stabilized': {
-      const pulse = Math.sin(t * Math.PI * 2 * bpmFreq);
       return {
         skull: '#0ea5e9',
         emissive: '#0284c7',
-        emissiveIntensity: 0.8 + pulse * 0.3,
-        ring: '#bae6fd',
-        ringIntensity: 1.6 + pulse * 0.4,
-        pupil: '#e0f2fe',
-        pupilIntensity: 1.5 + pulse * 0.4,
+        emissiveIntensity: 0.85,
+        ring: '#ffffff',
+        ringIntensity: 1.8,
+        pupil: '#ffffff',
+        pupilIntensity: 1.8,
       };
     }
     case 'alert':
       return {
         skull: '#c2550a',
         emissive: '#b45309',
-        emissiveIntensity: 0.9 + Math.sin(t * 5) * 0.3,
+        emissiveIntensity: 0.9,
         ring: '#fde68a',
         ringIntensity: 1.7,
-        pupil: '#fef3c7',
-        pupilIntensity: 1.4 + Math.sin(t * 6) * 0.3,
+        pupil: '#ffffff',
+        pupilIntensity: 1.8,
       };
   }
 }
@@ -418,15 +417,10 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
     const displayState = toDisplayState(trackingState as FaceTrackingState, motionWarning);
     const colours = getColourTarget(displayState, t, bpm ?? 72);
 
-    // ── Update scan-line shader uniforms ────────────────────────────────────
+    // ── Scan-line shader uniform (beam disabled) ───────────────────────────
     if (skullMatRef.current?.userData.shader) {
       skullMatRef.current.userData.shader.uniforms.uTime.value = t;
-      skullMatRef.current.userData.shader.uniforms.uScanActive.value =
-        THREE.MathUtils.lerp(
-          skullMatRef.current.userData.shader.uniforms.uScanActive.value,
-          displayState === 'processing' ? 1.0 : 0.0,
-          delta * 2,
-        );
+      skullMatRef.current.userData.shader.uniforms.uScanActive.value = 0.0;
     }
 
     // ── Head pose from face landmarks (yaw / pitch / roll) ──────────────────
@@ -551,80 +545,23 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
       }
     }
 
-    // ── Blink system ─────────────────────────────────────────────────────────
-    const blink = blinkRef.current;
-    
-    // Check blendshapes for blink intent
-    let blinkLeft = blendshapes?.find(b => {
-      const n = b.categoryName.toLowerCase();
-      return n.includes('blink') && (n.includes('left') || n.includes('_l'));
-    })?.score;
-    
-    let blinkRight = blendshapes?.find(b => {
-      const n = b.categoryName.toLowerCase();
-      return n.includes('blink') && (n.includes('right') || n.includes('_r'));
-    })?.score;
-    
-    // Fallback to manual EAR (Eye Aspect Ratio) if blendshapes are missing
-    if (blinkLeft === undefined || blinkRight === undefined) {
-      if (landmarks && landmarks.length > 386) {
-        // Vertical distance between upper and lower eyelids
-        const leftEyeDist = Math.abs(landmarks[159].y - landmarks[145].y);
-        const rightEyeDist = Math.abs(landmarks[386].y - landmarks[374].y);
-        
-        // Open eye dist is ~0.02 - 0.03. Closed is < 0.005
-        blinkLeft = leftEyeDist < 0.008 ? 1.0 : 0.0;
-        blinkRight = rightEyeDist < 0.008 ? 1.0 : 0.0;
-      } else {
-        blinkLeft = 0;
-        blinkRight = 0;
-      }
-    }
-    
-    const isBlinkingIntent = blinkLeft > 0.3 || blinkRight > 0.3;
-
-    // Trigger blink with 300ms debounce
-    if (isBlinkingIntent && !blink.blinking && (t - blink.lastBlinkTime) > 0.3) {
-      blink.blinking = true;
-      blink.blinkProgress = 0;
-      blink.lastBlinkTime = t;
-    }
-
-    if (blink.blinking) {
-      // 200ms total duration for squash/shutter
-      blink.blinkProgress += delta / 0.20;
-      if (blink.blinkProgress >= 1) {
-        blink.blinking = false;
-        blink.blinkProgress = 0;
-      }
-    }
-
-    // ── Pupil blink: squash vertically when blinking ──────────────────
-    const bP = blink.blinkProgress;
-    const pupilScaleY = blink.blinking
-      ? (bP < 0.5 ? 1 - (bP / 0.5) * 0.85 : ((bP - 0.5) / 0.5) * 0.85 + 0.15)
-      : 1.0;
-
+    // ── Stable pupils, arcs, and mouth (no squashing or stretching into beams) ──
     for (const rRef of [ringLRef, ringRRef]) {
       if (rRef.current) {
-        rRef.current.scale.y = 1.0; // Never squash arcs
+        rRef.current.scale.set(1.0, 1.0, 1.0);
       }
     }
     for (const pRef of [pupilLRef, pupilRRef]) {
       if (pRef.current) {
-        pRef.current.scale.y = THREE.MathUtils.lerp(pRef.current.scale.y, pupilScaleY, delta * 20);
+        pRef.current.scale.set(1.0, 1.0, 1.0);
+        const mat = pRef.current.material as THREE.MeshStandardMaterial;
+        mat.emissive.lerp(new THREE.Color(colours.pupil), delta * 4);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, colours.pupilIntensity, delta * 4);
       }
     }
 
-    // ── Live mouth animation (reacts to user speaking/opening jaw) ───────────
-    const jawOpen = blendshapes?.find(b => {
-      const n = b.categoryName.toLowerCase();
-      return n === 'jawopen' || n.includes('jaw_open') || n.includes('jawopen');
-    })?.score ?? 0;
-
     if (mouthRef.current) {
-      const targetMouthScaleY = 1.0 + Math.min(jawOpen * 2.2, 2.0);
-      mouthRef.current.scale.y = THREE.MathUtils.lerp(mouthRef.current.scale.y, targetMouthScaleY, delta * 15);
+      mouthRef.current.scale.set(1.0, 1.0, 1.0);
       const mat = mouthRef.current.material as THREE.MeshStandardMaterial;
       mat.emissive.lerp(new THREE.Color(colours.ring), delta * 4);
       mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, colours.ringIntensity, delta * 4);
