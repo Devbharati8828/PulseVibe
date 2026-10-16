@@ -36,14 +36,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   recordSample: (bpm, trust) => {
     set((state) => {
-      if (!state.currentSession || trust < 0.6 || bpm === 0) return state;
+      if (!state.currentSession || !bpm || bpm <= 0) return state;
 
       const t = performance.now() - state.currentSession.startTime;
       return {
         currentSession: {
           ...state.currentSession,
           bpmSamples: [...state.currentSession.bpmSamples, { t, bpm }],
-          trustSamples: [...state.currentSession.trustSamples, trust],
+          trustSamples: [...state.currentSession.trustSamples, trust ?? 0],
         }
       };
     });
@@ -51,18 +51,27 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   endSession: async () => {
     const { currentSession } = get();
-    if (!currentSession || currentSession.bpmSamples.length === 0) {
+    if (!currentSession) {
+      return null;
+    }
+
+    const duration = performance.now() - currentSession.startTime;
+    // Discard accidental micro-clicks (< 500ms)
+    if (duration < 500) {
       set({ currentSession: null });
       return null;
     }
 
     const { bpmSamples, trustSamples, startTime } = currentSession;
-    const bpms = bpmSamples.map(s => s.bpm);
+    const hasSamples = bpmSamples.length > 0;
+    const bpms = hasSamples ? bpmSamples.map(s => s.bpm) : [];
     
-    const avgBpm = bpms.reduce((a, b) => a + b, 0) / bpms.length;
-    const minBpm = Math.min(...bpms);
-    const maxBpm = Math.max(...bpms);
-    const avgTrust = trustSamples.reduce((a, b) => a + b, 0) / trustSamples.length;
+    const avgBpm = hasSamples ? bpms.reduce((a, b) => a + b, 0) / bpms.length : 0;
+    const minBpm = hasSamples ? Math.min(...bpms) : 0;
+    const maxBpm = hasSamples ? Math.max(...bpms) : 0;
+    const avgTrust = (trustSamples && trustSamples.length > 0)
+      ? trustSamples.reduce((a, b) => a + b, 0) / trustSamples.length
+      : 0;
     
     let quality: 'excellent' | 'good' | 'fair' | 'poor' = 'poor';
     if (avgTrust > 0.8) quality = 'excellent';
@@ -71,9 +80,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     const record: SessionRecord = {
       id: crypto.randomUUID(),
-      startTime: Date.now() - (performance.now() - startTime),
+      startTime: Date.now() - duration,
       endTime: Date.now(),
-      duration: performance.now() - startTime,
+      duration,
       avgBpm,
       minBpm,
       maxBpm,
@@ -82,8 +91,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       bpmTimeline: bpmSamples,
     };
 
-    await db.saveSession(record);
-    await sessionsApi.saveSession(record);
+    try {
+      await db.saveSession(record);
+    } catch (err) {
+      console.error('[SessionStore] Error saving session to IndexedDB:', err);
+    }
+
+    try {
+      await sessionsApi.saveSession(record);
+    } catch (err) {
+      console.warn('[SessionStore] Backend sync failed:', err);
+    }
+
     await get().loadHistory();
     
     set({ currentSession: null });
@@ -91,9 +110,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   loadHistory: async () => {
-    const history = await db.getAllSessions();
-    // Sort newest first
-    set({ history: history.sort((a, b) => b.startTime - a.startTime) });
+    try {
+      const history = await db.getAllSessions();
+      // Sort newest first
+      set({ history: (history || []).sort((a, b) => (b.startTime || 0) - (a.startTime || 0)) });
+    } catch (err) {
+      console.error('[SessionStore] loadHistory failed:', err);
+    }
   },
 
   deleteSession: async (id) => {

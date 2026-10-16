@@ -45,9 +45,12 @@ export default function MeasurementPage() {
           ← ABORT
         </Button>
         
-        <div className="flex space-x-4">
+        <div className="flex space-x-3 sm:space-x-4">
           {!isRunning ? (
-            <Button onClick={start}>ENGAGE SCANNER</Button>
+            <>
+              <Button onClick={start}>ENGAGE SCANNER</Button>
+              <Button variant="outline" onClick={() => navigate('/history')}>VIEW HISTORY</Button>
+            </>
           ) : (
             <Button variant="destructive" onClick={() => stop()}>HALT</Button>
           )}

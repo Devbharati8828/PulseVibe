@@ -33,28 +33,26 @@ export function useSessionRecorder() {
         // End the session and save it — this persists to IndexedDB
         endSession().then((record) => {
           if (record) {
-            console.log(`[SessionRecorder] Session saved: ${record.id}, avgBpm=${record.avgBpm.toFixed(1)}`);
+            console.log(`[SessionRecorder] Session saved: ${record.id}, duration=${(record.duration / 1000).toFixed(1)}s, avgBpm=${record.avgBpm.toFixed(1)}`);
           } else {
-            console.log('[SessionRecorder] Session ended but no samples recorded — not saved.');
+            console.log('[SessionRecorder] Session ended (duration too short under 500ms).');
           }
         });
       }
     }
   }, [isRunning, startSession, endSession]);
 
-  // Record samples when locked + valid BPM
+  // Record samples whenever valid BPM is produced by the engine
   useEffect(() => {
     if (
       isRunning &&
       viewModel &&
-      viewModel.trackingState === 'LOCKED' &&
       viewModel.bpm !== null &&
-      viewModel.bpm > 0 &&
-      viewModel.trustScore >= 0.5
+      viewModel.bpm > 0
     ) {
-      recordSample(viewModel.bpm, viewModel.trustScore);
+      recordSample(viewModel.bpm, viewModel.trustScore ?? 0);
     }
-  }, [isRunning, viewModel?.bpm, viewModel?.trustScore, viewModel?.trackingState, recordSample]);
+  }, [isRunning, viewModel?.bpm, viewModel?.trustScore, recordSample]);
 
   return null; // pure logic hook
 }

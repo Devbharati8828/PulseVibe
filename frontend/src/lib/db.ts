@@ -35,7 +35,13 @@ class PulseVibeDB {
 
   async getAllSessions(): Promise<SessionRecord[]> {
     const db = await this.dbPromise;
-    return db.getAllFromIndex('sessions', 'by-start-time');
+    try {
+      const records = await db.getAllFromIndex('sessions', 'by-start-time');
+      if (records && records.length > 0) return records;
+    } catch {
+      // Fallback if index query fails
+    }
+    return db.getAll('sessions');
   }
 
   async getSession(id: string): Promise<SessionRecord | undefined> {
