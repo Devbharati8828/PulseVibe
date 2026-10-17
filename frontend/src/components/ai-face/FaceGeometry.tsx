@@ -215,9 +215,6 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
   const pupilLRef = useRef<THREE.Mesh>(null);
   const pupilRRef = useRef<THREE.Mesh>(null);
   const mouthRef = useRef<THREE.Mesh>(null);
-  const lampRef  = useRef<THREE.Mesh>(null);   // forehead scan lamp
-  const mastRef  = useRef<THREE.Mesh>(null);   // antenna mast
-  const tipRef   = useRef<THREE.Mesh>(null);   // antenna tip (BPM pulse)
   const groupRef = useRef<THREE.Group>(null);
 
   // ── Blink system (ref-based, zero re-renders) ─────────────────────────────
@@ -230,6 +227,10 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
   // ── Intro sequence blink ref (idle mode only) ─────────────────────────────
   // Fired once at the end of the intro choreography sequence
   const introBlinkRef = useRef({ triggered: false, progress: 0 });
+
+  // ── Mouth animation state ────────────────────────────────────────────────
+  // Tracks smooth mouth open/close value (0 = closed smile, 1 = open)
+  const mouthOpenRef = useRef(0);
 
   // ── Scan-line material ref ────────────────────────────────────────────────
   const skullMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
@@ -263,15 +264,6 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
     [],
   );
 
-  // Forehead scan lamp — tiny sphere sitting above the eye-line
-  const lampGeo = useMemo(() => new THREE.SphereGeometry(0.045, 16, 16), []);
-
-  // Antenna mast — thin cylinder on top of skull
-  const mastGeo = useMemo(() => new THREE.CylinderGeometry(0.012, 0.016, 0.38, 12), []);
-
-  // Antenna tip — small sphere that pulses with BPM
-  const tipGeo  = useMemo(() => new THREE.SphereGeometry(0.038, 16, 16), []);
-
   // ── Skull material (patched with scan-line shader) ────────────────────────
   // Comfortable sky blue — soft, not blinding, matches reference photo
   const skullMat = useMemo(() => {
@@ -295,12 +287,9 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
       ringGeo.dispose();
       pupilGeo.dispose();
       mouthGeo.dispose();
-      lampGeo.dispose();
-      mastGeo.dispose();
-      tipGeo.dispose();
       skullMat.dispose();
     };
-  }, [skullGeo, chinGeo, ringGeo, pupilGeo, mouthGeo, lampGeo, mastGeo, tipGeo, skullMat]);
+  }, [skullGeo, chinGeo, ringGeo, pupilGeo, mouthGeo, skullMat]);
 
   // ── Animation loop ────────────────────────────────────────────────────────
   useFrame((state, delta) => {
@@ -419,29 +408,28 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
         }
       }
 
-      // Mouth arc: gentle glow in idle mode
+      // Mouth arc: animated in idle mode — gentle breath pulse + periodic open/close
       if (mouthRef.current) {
-        mouthRef.current.scale.y = 1.0;
+        // Periodic mouth movement: soft open/close every ~4 seconds
+        // Uses a sawtooth-like wave to create natural "talking" micro-motions
+        const mouthCycle = Math.sin(t * 0.8) * 0.5 + 0.5;  // 0→1→0 slow wave
+        const mouthQuick = Math.sin(t * 2.2) * 0.3 + 0.3;  // faster subtle variation
+        const targetMouthOpen = t > 7.0
+          ? mouthCycle * 0.18 + mouthQuick * 0.08  // normal idle: gentle talk-like motion
+          : 0.0;  // intro sequence: keep closed
+        mouthOpenRef.current = THREE.MathUtils.lerp(mouthOpenRef.current, targetMouthOpen, delta * 4);
+
+        // Scale Y on mouth slightly to simulate open/close (arc stretches a bit)
+        // Scale X varies inversely — smile widens when mouth is more closed
+        const scaleY = 1.0 + mouthOpenRef.current * 1.2;
+        const scaleX = 1.0 + mouthOpenRef.current * 0.15;
+        mouthRef.current.scale.set(scaleX, scaleY, 1.0);
+
         const mat = mouthRef.current.material as THREE.MeshStandardMaterial;
         mat.emissive.lerp(new THREE.Color(colours.ring), delta * 4);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, colours.ringIntensity, delta * 4);
-      }
-
-      // Forehead lamp: OFF in idle
-      if (lampRef.current) {
-        const mat = lampRef.current.material as THREE.MeshStandardMaterial;
-        mat.emissive.lerp(new THREE.Color('#0e3a50'), delta * 3);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.0, delta * 3);
-      }
-
-      // Antenna tip: dim & still in idle (no BPM yet)
-      if (tipRef.current) {
-        const mat = tipRef.current.material as THREE.MeshStandardMaterial;
-        mat.emissive.lerp(new THREE.Color('#0e3a50'), delta * 3);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.15, delta * 3);
-        tipRef.current.scale.setScalar(
-          THREE.MathUtils.lerp(tipRef.current.scale.x, 1.0, delta * 4)
-        );
+        // Mouth brightens slightly when open
+        const mouthIntensity = colours.ringIntensity + mouthOpenRef.current * 0.4;
+        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, mouthIntensity, delta * 4);
       }
 
       return;
@@ -593,52 +581,27 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
     }
 
     if (mouthRef.current) {
-      mouthRef.current.scale.set(1.0, 1.0, 1.0);
+      // Live mode mouth: react to jawOpen blendshape, or ambient gentle pulse
+      let targetMouthOpen = 0;
+      if (blendshapes) {
+        // MediaPipe jawOpen blendshape: 0 = closed, 1 = fully open
+        const jawOpen = blendshapes.find((b: { categoryName: string; score: number }) => b.categoryName === 'jawOpen')?.score ?? 0;
+        const mouthSmile = blendshapes.find((b: { categoryName: string; score: number }) => b.categoryName === 'mouthSmileLeft')?.score ?? 0;
+        targetMouthOpen = Math.max(jawOpen * 0.8, mouthSmile * 0.3);
+      } else {
+        // No blendshapes: gentle ambient breath-like movement
+        targetMouthOpen = (Math.sin(t * 0.9) * 0.5 + 0.5) * 0.12;
+      }
+      mouthOpenRef.current = THREE.MathUtils.lerp(mouthOpenRef.current, targetMouthOpen, delta * 8);
+
+      const scaleY = 1.0 + mouthOpenRef.current * 1.4;
+      const scaleX = 1.0 + mouthOpenRef.current * 0.2;
+      mouthRef.current.scale.set(scaleX, scaleY, 1.0);
+
       const mat = mouthRef.current.material as THREE.MeshStandardMaterial;
       mat.emissive.lerp(new THREE.Color(colours.ring), delta * 4);
-      mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, colours.ringIntensity, delta * 4);
-    }
-
-    // ── Forehead scan lamp ──────────────────────────────────────────────────
-    if (lampRef.current) {
-      const mat = lampRef.current.material as THREE.MeshStandardMaterial;
-      const isScanning  = displayState === 'scanning' || displayState === 'acquiring' || displayState === 'locked' || displayState === 'stabilized' || displayState === 'processing';
-      const isLost      = displayState === 'alert';
-      const lampColour  = isLost ? '#b45309' : '#22d3ee';
-      const lampTarget  = isScanning ? (1.6 + Math.sin(t * 3.0) * 0.4) : isLost ? 0.5 : 0.0;
-      mat.color.lerp(new THREE.Color(lampColour), delta * 4);
-      mat.emissive.lerp(new THREE.Color(lampColour), delta * 4);
-      mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, lampTarget, delta * 5);
-    }
-
-    // ── Heartbeat antenna tip (BPM pulse) ───────────────────────────────────
-    if (tipRef.current) {
-      const mat = tipRef.current.material as THREE.MeshStandardMaterial;
-      const hasBpm     = (bpm ?? 0) > 40 && (bpm ?? 0) < 200;
-      const isLowTrust = displayState === 'alert' || displayState === 'scanning';
-
-      if (hasBpm) {
-        // Pulse exactly at live BPM rate
-        const bpmFreq    = (bpm ?? 72) / 60; // beats per second
-        const beatPhase  = (t * bpmFreq) % 1.0; // 0→1 per beat
-        const pulse      = Math.pow(Math.max(0, 1 - beatPhase * 2.5), 2.5); // sharp decay
-        const jitter     = isLowTrust ? (Math.random() * 0.3 - 0.15) : 0; // irregular when low trust
-        const pulseVal   = pulse + jitter;
-        const tipIntensity = 0.4 + Math.max(0, pulseVal) * (isLowTrust ? 1.0 : 2.2);
-        const tipScale   = 1.0 + Math.max(0, pulseVal) * (isLowTrust ? 0.15 : 0.4);
-        mat.emissive.lerp(new THREE.Color(isLowTrust ? '#f59e0b' : '#22d3ee'), delta * 8);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, tipIntensity, delta * 12);
-        tipRef.current.scale.setScalar(
-          THREE.MathUtils.lerp(tipRef.current.scale.x, tipScale, delta * 12)
-        );
-      } else {
-        // No reliable BPM yet — dim and still
-        mat.emissive.lerp(new THREE.Color('#0e3a50'), delta * 3);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.15, delta * 3);
-        tipRef.current.scale.setScalar(
-          THREE.MathUtils.lerp(tipRef.current.scale.x, 1.0, delta * 4)
-        );
-      }
+      const mouthIntensity = colours.ringIntensity + mouthOpenRef.current * 0.5;
+      mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, mouthIntensity, delta * 4);
     }
   });
 
@@ -663,14 +626,6 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
   const MOUTH_Z = 0.71;
   const MOUTH_ROT_Z = -Math.PI * 0.825; // curves upward at the ends (friendly smile)
   const MOUTH_ROT_X = 0.16;             // tilts slightly to hug facial contour
-
-  // Forehead lamp — small glowing dot above eye-line, center of forehead
-  const LAMP_Y =  0.62;   // above eyes (EYE_Y=0.18) but below crown
-  const LAMP_Z =  0.68;   // on the skull surface
-
-  // Antenna — thin mast rising from top of skull crown
-  const MAST_Y =  1.25;   // center of the mast (skull radius ~1, mast height 0.38 → center at 1+0.19)
-  const TIP_Y  =  1.47;   // top of mast + a bit
 
   return (
     <group ref={groupRef}>
@@ -769,51 +724,6 @@ export function FaceGeometry({ mode = 'live' }: FaceGeometryProps) {
           metalness={0.0}
           transparent
           opacity={1.0}
-        />
-      </mesh>
-
-      {/* ── Forehead scan lamp ────────────────────────────────────────────── */}
-      <mesh
-        ref={lampRef}
-        geometry={lampGeo}
-        position={[0, LAMP_Y, LAMP_Z]}
-      >
-        <meshStandardMaterial
-          color="#22d3ee"
-          emissive="#22d3ee"
-          emissiveIntensity={0.0}
-          roughness={0.1}
-          metalness={0.2}
-        />
-      </mesh>
-
-      {/* ── Antenna mast ──────────────────────────────────────────────────── */}
-      <mesh
-        ref={mastRef}
-        geometry={mastGeo}
-        position={[0, MAST_Y, 0]}
-      >
-        <meshStandardMaterial
-          color="#1e3a5f"
-          emissive="#0e2040"
-          emissiveIntensity={0.3}
-          roughness={0.5}
-          metalness={0.6}
-        />
-      </mesh>
-
-      {/* ── Antenna tip (BPM pulse) ────────────────────────────────────────── */}
-      <mesh
-        ref={tipRef}
-        geometry={tipGeo}
-        position={[0, TIP_Y, 0]}
-      >
-        <meshStandardMaterial
-          color="#22d3ee"
-          emissive="#0e3a50"
-          emissiveIntensity={0.15}
-          roughness={0.05}
-          metalness={0.1}
         />
       </mesh>
 
